@@ -17,16 +17,17 @@ export class LivenessCheckService {
   async findUsersNeedingCheck(): Promise<UserRisk[]> {
     const ageSeconds = this.riskAgeSeconds();
 
-    const rows = (await this.prisma.$queryRaw`
+    const rows = await this.prisma.$queryRaw`
       SELECT ur.*
       FROM "UserRisk" ur
       LEFT JOIN "UserRiskNotification" n
         ON n."userId" = ur."userId" AND n."riskType" = ur."riskType"
       WHERE ur."riskType" = 'HIGH_RISK_AREA'
         AND ur."riskLevel" IN ('HIGH', 'CRITICAL')
+        AND ur."livenessCheckEnabled" = true
         AND ur."updatedAt" <= NOW() - INTERVAL '1 second' * ${ageSeconds}
         AND (n."sentAt" IS NULL OR n."sentAt" < ur."updatedAt")
-    `) as UserRisk[];
+    `;
 
     return rows;
   }
