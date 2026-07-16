@@ -36,8 +36,12 @@ export class LivenessCheckService {
   }
 
   async dispatchCheckBatch(): Promise<void> {
-    const users = await this.findUsersNeedingCheck();
     const now = new Date();
+    console.log(
+      `[liveness-check] ${now.toISOString()} - running liveness check dispatch`,
+    );
+
+    const users = await this.findUsersNeedingCheck();
 
     if (users.length > 0) {
       console.log(
