@@ -25,7 +25,7 @@ describe('User handling (e2e)', () => {
     await app.close();
   });
 
-  it('manages guardian relationships', async () => {
+  it('manages guardian and guardee invitations', async () => {
     const suffix = Date.now();
     const phoneSeed = String(suffix).slice(-8);
     const guardee = {
@@ -58,6 +58,11 @@ describe('User handling (e2e)', () => {
       .post('/api/auth/login')
       .send(guardian)
       .expect(200);
+    const guardianIdentity = await request(app.getHttpServer())
+      .get('/api/auth/me')
+      .set('Authorization', `Bearer ${guardianLogin.body.accessToken}`)
+      .expect(200);
+    const guardianId = guardianIdentity.body.sub as string;
 
     await request(app.getHttpServer())
       .post('/api/guardians/requests')
@@ -76,7 +81,24 @@ describe('User handling (e2e)', () => {
       .expect(({ body }) => {
         expect(body).toHaveLength(1);
         expect(body[0].guardee.id).toBe(guardeeId);
+        expect(body[0].initiatorRole).toBe('GUARDEE');
       });
+
+    await request(app.getHttpServer())
+      .get('/api/guardians/requests')
+      .set('Authorization', `Bearer ${guardeeRegistration.body.accessToken}`)
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body).toHaveLength(1);
+        expect(body[0].guardian.email).toBe(guardian.email);
+        expect(body[0].initiatorRole).toBe('GUARDEE');
+      });
+
+    await request(app.getHttpServer())
+      .patch(`/api/guardians/requests/${guardianId}`)
+      .set('Authorization', `Bearer ${guardeeRegistration.body.accessToken}`)
+      .send({ status: 'ACCEPTED' })
+      .expect(403);
 
     await request(app.getHttpServer())
       .patch(`/api/guardees/requests/${guardeeId}`)
@@ -102,6 +124,69 @@ describe('User handling (e2e)', () => {
     await request(app.getHttpServer())
       .delete(`/api/guardees/${guardeeId}`)
       .set('Authorization', `Bearer ${guardianLogin.body.accessToken}`)
+      .expect(204);
+
+    await request(app.getHttpServer())
+      .post('/api/guardees/requests')
+      .set('Authorization', `Bearer ${guardianLogin.body.accessToken}`)
+      .send({ phoneNumber: guardee.phoneNumber })
+      .expect(201)
+      .expect(({ body }) => {
+        expect(body.status).toBe('PENDING');
+        expect(body.guardee.email).toBe(guardee.email);
+        expect(body.initiatorRole).toBe('GUARDIAN');
+      });
+
+    await request(app.getHttpServer())
+      .patch(`/api/guardees/requests/${guardeeId}`)
+      .set('Authorization', `Bearer ${guardianLogin.body.accessToken}`)
+      .send({ status: 'ACCEPTED' })
+      .expect(403);
+
+    await request(app.getHttpServer())
+      .patch(`/api/guardians/requests/${guardianId}`)
+      .set('Authorization', `Bearer ${guardeeRegistration.body.accessToken}`)
+      .send({ status: 'DECLINED' })
+      .expect(200);
+
+    await request(app.getHttpServer())
+      .get('/api/guardians/requests')
+      .set('Authorization', `Bearer ${guardeeRegistration.body.accessToken}`)
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body).toHaveLength(1);
+        expect(body[0].status).toBe('DECLINED');
+        expect(body[0].initiatorRole).toBe('GUARDIAN');
+      });
+
+    await request(app.getHttpServer())
+      .post('/api/guardees/requests')
+      .set('Authorization', `Bearer ${guardianLogin.body.accessToken}`)
+      .send({ phoneNumber: guardee.phoneNumber })
+      .expect(201)
+      .expect(({ body }) => {
+        expect(body.status).toBe('PENDING');
+        expect(body.initiatorRole).toBe('GUARDIAN');
+      });
+
+    await request(app.getHttpServer())
+      .patch(`/api/guardians/requests/${guardianId}`)
+      .set('Authorization', `Bearer ${guardeeRegistration.body.accessToken}`)
+      .send({ status: 'ACCEPTED' })
+      .expect(200);
+
+    await request(app.getHttpServer())
+      .get('/api/guardians')
+      .set('Authorization', `Bearer ${guardeeRegistration.body.accessToken}`)
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body).toHaveLength(1);
+        expect(body[0].guardian.id).toBe(guardianId);
+      });
+
+    await request(app.getHttpServer())
+      .delete(`/api/guardians/${guardianId}`)
+      .set('Authorization', `Bearer ${guardeeRegistration.body.accessToken}`)
       .expect(204);
   });
 });

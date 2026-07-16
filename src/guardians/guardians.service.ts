@@ -1,10 +1,14 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { GuardianRelationshipStatus } from '@prisma/client';
+import {
+  GuardianRelationshipInitiatorRole,
+  GuardianRelationshipStatus,
+} from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 
 const userSummary = {
@@ -29,8 +33,42 @@ export class GuardiansService {
       throw new BadRequestException('A user cannot be their own guardian');
     }
 
+    return this.requestRelationship(
+      guardian.id,
+      guardeeId,
+      GuardianRelationshipInitiatorRole.GUARDEE,
+      'guardian',
+    );
+  }
+
+  async requestGuardee(guardianId: string, phoneNumber: string) {
+    const guardee = await this.prisma.user.findUnique({
+      where: { phoneNumber },
+      select: userSummary,
+    });
+    if (!guardee) {
+      throw new NotFoundException('Guardee contact was not found');
+    }
+    if (guardee.id === guardianId) {
+      throw new BadRequestException('A user cannot be their own guardee');
+    }
+
+    return this.requestRelationship(
+      guardianId,
+      guardee.id,
+      GuardianRelationshipInitiatorRole.GUARDIAN,
+      'guardee',
+    );
+  }
+
+  private async requestRelationship(
+    guardianId: string,
+    guardeeId: string,
+    initiatorRole: GuardianRelationshipInitiatorRole,
+    counterpart: 'guardian' | 'guardee',
+  ) {
     const existing = await this.prisma.guardianRelationship.findUnique({
-      where: { guardianId_guardeeId: { guardianId: guardian.id, guardeeId } },
+      where: { guardianId_guardeeId: { guardianId, guardeeId } },
     });
     if (existing?.status === GuardianRelationshipStatus.ACCEPTED) {
       throw new ConflictException('Guardian relationship already exists');
@@ -38,20 +76,24 @@ export class GuardiansService {
 
     const now = new Date();
     return this.prisma.guardianRelationship.upsert({
-      where: { guardianId_guardeeId: { guardianId: guardian.id, guardeeId } },
-      create: { guardianId: guardian.id, guardeeId },
+      where: { guardianId_guardeeId: { guardianId, guardeeId } },
+      create: { guardianId, guardeeId, initiatorRole },
       update: {
         status: GuardianRelationshipStatus.PENDING,
+        initiatorRole,
         requestedAt: now,
         respondedAt: null,
       },
-      include: { guardian: { select: userSummary } },
+      include:
+        counterpart === 'guardian'
+          ? { guardian: { select: userSummary } }
+          : { guardee: { select: userSummary } },
     });
   }
 
   listGuardians(guardeeId: string) {
     return this.prisma.guardianRelationship.findMany({
-      where: { guardeeId },
+      where: { guardeeId, status: GuardianRelationshipStatus.ACCEPTED },
       orderBy: { requestedAt: 'desc' },
       include: { guardian: { select: userSummary } },
     });
@@ -66,18 +108,72 @@ export class GuardiansService {
     }
   }
 
-  listIncomingRequests(guardianId: string) {
+  listGuardianRequests(guardeeId: string) {
     return this.prisma.guardianRelationship.findMany({
-      where: { guardianId, status: GuardianRelationshipStatus.PENDING },
+      where: {
+        guardeeId,
+        status: {
+          in: [
+            GuardianRelationshipStatus.PENDING,
+            GuardianRelationshipStatus.DECLINED,
+          ],
+        },
+      },
+      orderBy: { requestedAt: 'asc' },
+      include: { guardian: { select: userSummary } },
+    });
+  }
+
+  listGuardeeRequests(guardianId: string) {
+    return this.prisma.guardianRelationship.findMany({
+      where: {
+        guardianId,
+        status: {
+          in: [
+            GuardianRelationshipStatus.PENDING,
+            GuardianRelationshipStatus.DECLINED,
+          ],
+        },
+      },
       orderBy: { requestedAt: 'asc' },
       include: { guardee: { select: userSummary } },
     });
   }
 
-  async respondToRequest(
+  respondToRequest(
     guardianId: string,
     guardeeId: string,
     status: 'ACCEPTED' | 'DECLINED',
+  ) {
+    return this.respondToRelationshipRequest(
+      guardianId,
+      guardeeId,
+      GuardianRelationshipInitiatorRole.GUARDIAN,
+      status,
+      'guardee',
+    );
+  }
+
+  respondToGuardianRequest(
+    guardeeId: string,
+    guardianId: string,
+    status: 'ACCEPTED' | 'DECLINED',
+  ) {
+    return this.respondToRelationshipRequest(
+      guardianId,
+      guardeeId,
+      GuardianRelationshipInitiatorRole.GUARDEE,
+      status,
+      'guardian',
+    );
+  }
+
+  private async respondToRelationshipRequest(
+    guardianId: string,
+    guardeeId: string,
+    recipientRole: GuardianRelationshipInitiatorRole,
+    status: 'ACCEPTED' | 'DECLINED',
+    counterpart: 'guardian' | 'guardee',
   ) {
     if (
       status !== GuardianRelationshipStatus.ACCEPTED &&
@@ -97,11 +193,19 @@ export class GuardiansService {
     if (relationship.status !== GuardianRelationshipStatus.PENDING) {
       throw new ConflictException('Guardian request has already been resolved');
     }
+    if (relationship.initiatorRole === recipientRole) {
+      throw new ForbiddenException(
+        'Only the guardian request recipient can respond',
+      );
+    }
 
     return this.prisma.guardianRelationship.update({
       where: { guardianId_guardeeId: { guardianId, guardeeId } },
       data: { status, respondedAt: new Date() },
-      include: { guardee: { select: userSummary } },
+      include:
+        counterpart === 'guardian'
+          ? { guardian: { select: userSummary } }
+          : { guardee: { select: userSummary } },
     });
   }
 
@@ -144,11 +248,10 @@ export class GuardiansService {
       where: {
         guardianId,
         guardeeId,
-        status: GuardianRelationshipStatus.ACCEPTED,
       },
     });
     if (result.count === 0) {
-      throw new NotFoundException('Accepted guardian relationship not found');
+      throw new NotFoundException('Guardian relationship not found');
     }
   }
 }

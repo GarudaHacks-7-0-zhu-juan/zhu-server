@@ -30,6 +30,11 @@ enum GuardianRelationshipStatus {
   DECLINED
 }
 
+enum GuardianRelationshipInitiatorRole {
+  GUARDIAN
+  GUARDEE
+}
+
 model User {
   id                String                 @id @default(uuid())
   email             String                 @unique
@@ -64,15 +69,16 @@ model PushDevice {
 }
 
 model GuardianRelationship {
-  id          String                     @id @default(uuid())
-  guardianId  String
-  guardeeId   String
-  status      GuardianRelationshipStatus @default(PENDING)
-  requestedAt DateTime                   @default(now())
-  respondedAt DateTime?
-  updatedAt   DateTime                   @updatedAt
-  guardian    User                       @relation("Guardian", fields: [guardianId], references: [id])
-  guardee     User                       @relation("Guardee", fields: [guardeeId], references: [id])
+  id            String                            @id @default(uuid())
+  guardianId    String
+  guardeeId     String
+  status        GuardianRelationshipStatus        @default(PENDING)
+  initiatorRole GuardianRelationshipInitiatorRole
+  requestedAt   DateTime                          @default(now())
+  respondedAt   DateTime?
+  updatedAt     DateTime                          @updatedAt
+  guardian      User                              @relation("Guardian", fields: [guardianId], references: [id])
+  guardee       User                              @relation("Guardee", fields: [guardeeId], references: [id])
 
   @@unique([guardianId, guardeeId])
   @@index([guardianId, status])

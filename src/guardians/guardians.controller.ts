@@ -32,6 +32,24 @@ export class GuardiansController {
     return this.guardians.requestGuardian(request.user.sub, dto.phoneNumber);
   }
 
+  @Get('requests')
+  listRequests(@Req() request: AuthenticatedRequest) {
+    return this.guardians.listGuardianRequests(request.user.sub);
+  }
+
+  @Patch('requests/:guardianId')
+  respond(
+    @Req() request: AuthenticatedRequest,
+    @Param('guardianId') guardianId: string,
+    @Body() dto: RespondGuardianRequestDto,
+  ) {
+    return this.guardians.respondToGuardianRequest(
+      request.user.sub,
+      guardianId,
+      dto.status,
+    );
+  }
+
   @Get()
   list(@Req() request: AuthenticatedRequest) {
     return this.guardians.listGuardians(request.user.sub);
@@ -52,9 +70,17 @@ export class GuardiansController {
 export class GuardeesController {
   constructor(private readonly guardians: GuardiansService) {}
 
+  @Post('requests')
+  request(
+    @Req() request: AuthenticatedRequest,
+    @Body() dto: CreateGuardianRequestDto,
+  ) {
+    return this.guardians.requestGuardee(request.user.sub, dto.phoneNumber);
+  }
+
   @Get('requests')
   listRequests(@Req() request: AuthenticatedRequest) {
-    return this.guardians.listIncomingRequests(request.user.sub);
+    return this.guardians.listGuardeeRequests(request.user.sub);
   }
 
   @Patch('requests/:guardeeId')
