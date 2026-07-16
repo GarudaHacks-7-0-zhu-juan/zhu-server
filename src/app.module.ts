@@ -6,6 +6,7 @@ import { AppService } from './app.service';
 import { KafkaModule } from './kafka/kafka.module';
 import { LocationConsumerModule } from './location-consumer/location-consumer.module';
 import { LivenessCheckModule } from './liveness-check/liveness-check.module';
+import { LoggingModule } from './logging/logging.module';
 import { LocationsModule } from './locations/locations.module';
 import { OutboxModule } from './outbox/outbox.module';
 import { PrismaModule } from './prisma/prisma.module';
@@ -18,6 +19,7 @@ import { GuardiansModule } from './guardians/guardians.module';
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
+    LoggingModule,
     PrismaModule,
     RedisModule,
     QueueModule,

@@ -1,6 +1,8 @@
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
+import { Logger } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
+import { RequestContextService } from '../logging/request-context.service';
 import { UsersService } from '../users/users.service';
 import { AuthService } from './auth.service';
 
@@ -18,14 +20,21 @@ describe('AuthService', () => {
   };
   const jwt = { signAsync: jest.fn() };
   const config = { getOrThrow: jest.fn() };
+  const requestContext = { requestId: 'request-1' };
   const service = new AuthService(
     users as unknown as UsersService,
     jwt as unknown as JwtService,
     config as unknown as ConfigService,
+    requestContext as RequestContextService,
   );
 
   beforeEach(() => {
     jest.clearAllMocks();
+    jest.spyOn(Logger.prototype, 'log').mockImplementation();
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
   });
 
   it('persists email and phone identifiers on registration', async () => {
@@ -47,6 +56,11 @@ describe('AuthService', () => {
       'password-hash',
       '+628123456789',
     );
+    expect(Logger.prototype.log).toHaveBeenCalledWith({
+      event: 'auth.registered',
+      requestId: 'request-1',
+      userId: 'user-1',
+    });
   });
 
   it('verifies the password when logging in', async () => {
@@ -66,5 +80,10 @@ describe('AuthService', () => {
     });
 
     expect(bcrypt.compare).toHaveBeenCalledWith('password123', 'password-hash');
+    expect(Logger.prototype.log).toHaveBeenCalledWith({
+      event: 'auth.login.succeeded',
+      requestId: 'request-1',
+      userId: 'user-1',
+    });
   });
 });
