@@ -41,7 +41,7 @@ export class LivenessCheckService {
 
     if (users.length > 0) {
       console.log(
-        `[liveness-check] ${users.length} user(s) need a liveness check`,
+        `[liveness-check] ${now.toISOString()} - ${users.length} user(s) need a liveness check`,
         users.map((u) => ({ userId: u.userId, riskLevel: u.riskLevel })),
       );
     }
