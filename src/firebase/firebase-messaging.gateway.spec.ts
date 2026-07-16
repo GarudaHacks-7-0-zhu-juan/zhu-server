@@ -58,6 +58,29 @@ describe('FirebaseMessagingGateway', () => {
     });
   });
 
+  it('maps a production liveness check to a visible high-priority message', async () => {
+    messaging.send.mockResolvedValue('message-id');
+
+    await gateway.sendLivenessCheck('registration-token', 'DISASTER');
+
+    expect(messaging.send).toHaveBeenCalledWith({
+      token: 'registration-token',
+      notification: {
+        title: 'Are you safe?',
+        body: 'Confirm that you are safe.',
+      },
+      data: {
+        eventType: 'LIVENESS_CHECK',
+        riskType: 'DISASTER',
+        route: '/liveness-check',
+      },
+      android: {
+        priority: 'high',
+        notification: { channelId: 'high_importance_channel' },
+      },
+    });
+  });
+
   it('maps a guardian risk notification to an Android token message', async () => {
     messaging.send.mockResolvedValue('message-id');
 

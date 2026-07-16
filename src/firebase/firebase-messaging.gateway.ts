@@ -78,6 +78,28 @@ export class FirebaseMessagingGateway {
     });
   }
 
+  async sendLivenessCheck(
+    registrationToken: string,
+    riskType: string,
+  ): Promise<void> {
+    await this.send({
+      token: registrationToken,
+      notification: {
+        title: 'Are you safe?',
+        body: 'Confirm that you are safe.',
+      },
+      data: {
+        eventType: 'LIVENESS_CHECK',
+        riskType,
+        route: '/liveness-check',
+      },
+      android: {
+        priority: 'high',
+        notification: { channelId: 'high_importance_channel' },
+      },
+    });
+  }
+
   private async send(message: Message): Promise<void> {
     const messaging = this.messaging;
     if (!messaging) {

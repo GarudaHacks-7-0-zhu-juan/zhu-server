@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { UserRisk } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { PushService } from '../push/push.service';
 import {
   DEFAULT_LIVENESS_CHECK_RISK_AGE_SECONDS,
   LIVENESS_CHECK_RISK_AGE_SECONDS_ENV,
@@ -12,6 +13,7 @@ export class LivenessCheckService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly config: ConfigService,
+    private readonly push: PushService,
   ) {}
 
   async findUsersNeedingCheck(): Promise<UserRisk[]> {
@@ -50,13 +52,29 @@ export class LivenessCheckService {
     }
 
     for (const user of users) {
-      await this.prisma.userRiskNotification.create({
-        data: {
+      const result = await this.push.sendLivenessCheck(
+        user.userId,
+        user.riskType,
+      );
+      console.log(
+        `[liveness-check] ${now.toISOString()} - notification result`,
+        {
           userId: user.userId,
           riskType: user.riskType,
-          sentAt: now,
+          sent: result.sent,
+          failed: result.failed,
         },
-      });
+      );
+
+      if (result.sent > 0) {
+        await this.prisma.userRiskNotification.create({
+          data: {
+            userId: user.userId,
+            riskType: user.riskType,
+            sentAt: now,
+          },
+        });
+      }
     }
   }
 
