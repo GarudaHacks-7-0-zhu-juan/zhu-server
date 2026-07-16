@@ -17,7 +17,7 @@ export class LivenessCheckService {
   async findUsersNeedingCheck(): Promise<UserRisk[]> {
     const ageSeconds = this.riskAgeSeconds();
 
-    const rows = await this.prisma.$queryRaw`
+    const rows = await this.prisma.$queryRaw<UserRisk[]>`
       SELECT ur.*
       FROM "UserRisk" ur
       LEFT JOIN "UserRiskNotification" n
