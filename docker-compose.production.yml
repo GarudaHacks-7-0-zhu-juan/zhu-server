@@ -1,0 +1,14 @@
+services:
+  postgres:
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
+    ports: !override
+      - '127.0.0.1:${POSTGRES_HOST_PORT:?POSTGRES_HOST_PORT must be set}:5432'
+
+  redis:
+    ports: !override
+      - '127.0.0.1:${REDIS_HOST_PORT:?REDIS_HOST_PORT must be set}:6379'
+
+  kafka:
+    ports: !override
+      - '127.0.0.1:${KAFKA_HOST_PORT:?KAFKA_HOST_PORT must be set}:9092'
