@@ -17,6 +17,7 @@ describe('PushService', () => {
   const gateway = {
     isAvailable: true,
     sendTestNotification: jest.fn(),
+    sendTestLivenessCheck: jest.fn(),
   };
   const config = { get: jest.fn() };
   const service = new PushService(
@@ -124,5 +125,19 @@ describe('PushService', () => {
     });
     expect(gateway.sendTestNotification).toHaveBeenCalledTimes(3);
     expect(prisma.pushDevice.updateMany).not.toHaveBeenCalled();
+  });
+
+  it('sends a liveness check to the active Android device', async () => {
+    prisma.pushDevice.findMany.mockResolvedValue([
+      { registrationToken: 'token-1' },
+    ]);
+    gateway.sendTestLivenessCheck.mockResolvedValue(undefined);
+
+    await expect(service.sendTestLivenessCheck('user-1')).resolves.toEqual({
+      sent: 1,
+      failed: 0,
+      disabled: 0,
+    });
+    expect(gateway.sendTestLivenessCheck).toHaveBeenCalledWith('token-1');
   });
 });

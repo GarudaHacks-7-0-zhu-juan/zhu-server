@@ -40,4 +40,9 @@ export class PushController {
   sendTestNotification(@Req() request: AuthenticatedRequest) {
     return this.push.sendTestNotification(request.user.sub);
   }
+
+  @Post('test/liveness-check')
+  sendTestLivenessCheck(@Req() request: AuthenticatedRequest) {
+    return this.push.sendTestLivenessCheck(request.user.sub);
+  }
 }

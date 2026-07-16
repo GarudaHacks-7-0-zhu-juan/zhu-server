@@ -10,6 +10,7 @@ describe('PushController', () => {
     registerDevice: jest.fn(),
     removeDevice: jest.fn(),
     sendTestNotification: jest.fn(),
+    sendTestLivenessCheck: jest.fn(),
   };
   const controller = new PushController(push as unknown as PushService);
   const request = {
@@ -53,5 +54,17 @@ describe('PushController', () => {
     await controller.sendTestNotification(request);
 
     expect(push.sendTestNotification).toHaveBeenCalledWith('user-1');
+  });
+
+  it('scopes liveness test sends to the authenticated user', async () => {
+    push.sendTestLivenessCheck.mockResolvedValue({
+      sent: 1,
+      failed: 0,
+      disabled: 0,
+    });
+
+    await controller.sendTestLivenessCheck(request);
+
+    expect(push.sendTestLivenessCheck).toHaveBeenCalledWith('user-1');
   });
 });

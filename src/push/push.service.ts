@@ -68,6 +68,25 @@ export class PushService {
     failed: number;
     disabled: number;
   }> {
+    return this.sendTest(userId, (registrationToken) =>
+      this.gateway.sendTestNotification(registrationToken),
+    );
+  }
+
+  async sendTestLivenessCheck(userId: string): Promise<{
+    sent: number;
+    failed: number;
+    disabled: number;
+  }> {
+    return this.sendTest(userId, (registrationToken) =>
+      this.gateway.sendTestLivenessCheck(registrationToken),
+    );
+  }
+
+  private async sendTest(
+    userId: string,
+    send: (registrationToken: string) => Promise<void>,
+  ): Promise<{ sent: number; failed: number; disabled: number }> {
     if (!envFlagEnabled(this.config.get<string>(FCM_TEST_SEND_ENABLED_ENV))) {
       throw new NotFoundException('Push test endpoint is disabled');
     }
@@ -86,9 +105,7 @@ export class PushService {
     }
 
     const results = await Promise.allSettled(
-      devices.map((device) =>
-        this.gateway.sendTestNotification(device.registrationToken),
-      ),
+      devices.map((device) => send(device.registrationToken)),
     );
     const sent = results.filter(
       (result) => result.status === 'fulfilled',
