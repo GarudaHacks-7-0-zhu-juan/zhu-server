@@ -25,6 +25,10 @@ describe('UserRisksController', () => {
       .mockResolvedValue([
         { riskType: RiskType.HIGH_RISK_AREA, livenessCheckEnabled: true },
       ]),
+    respondToLivenessCheck: jest.fn().mockResolvedValue({
+      risk: mockRisk,
+      event: { id: 'risk-event-1' },
+    }),
   };
 
   const request = {
@@ -75,6 +79,26 @@ describe('UserRisksController', () => {
       expect(result).toEqual([
         { riskType: RiskType.HIGH_RISK_AREA, livenessCheckEnabled: true },
       ]);
+    });
+  });
+
+  describe('respondToLivenessCheck', () => {
+    it('resets the risk level for the authenticated user', async () => {
+      const respondSpy = jest.spyOn(service, 'respondToLivenessCheck');
+
+      const result = await controller.respondToLivenessCheck(
+        request,
+        RiskType.HIGH_RISK_AREA,
+      );
+
+      expect(respondSpy).toHaveBeenCalledWith(
+        'user-1',
+        RiskType.HIGH_RISK_AREA,
+      );
+      expect(result).toEqual({
+        risk: mockRisk,
+        event: { id: 'risk-event-1' },
+      });
     });
   });
 });

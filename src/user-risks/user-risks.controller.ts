@@ -5,6 +5,7 @@ import {
   Param,
   ParseEnumPipe,
   Patch,
+  Post,
   Req,
   UseGuards,
 } from '@nestjs/common';
@@ -38,5 +39,13 @@ export class UserRisksController {
   @Get('liveness-check')
   getLivenessCheckStatuses(@Req() request: AuthenticatedRequest) {
     return this.userRisks.getLivenessCheckStatuses(request.user.sub);
+  }
+
+  @Post(':riskType/liveness-check/respond')
+  respondToLivenessCheck(
+    @Req() request: AuthenticatedRequest,
+    @Param('riskType', new ParseEnumPipe(RiskType)) riskType: RiskType,
+  ) {
+    return this.userRisks.respondToLivenessCheck(request.user.sub, riskType);
   }
 }
