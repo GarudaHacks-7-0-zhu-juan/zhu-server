@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "zhu-server",
-    "description": "Postman collection for the zhu-server NestJS API. The server is mounted under the global /api prefix (see src/main.ts), so all paths below include it via the {{baseUrl}} variable (default: http://localhost:3000/api).\n\nRun the requests in this order to keep collection variables in sync:\n  1. App > Get status\n  2. Auth > Register (populates {{accessToken}} and {{refreshToken}})\n  3. Auth > Login (refreshes the tokens)\n  4. Auth > Me (uses {{accessToken}})\n  5. Guardians > Request guardian (set {{guardianPhoneNumber}} to another registered user)\n  6. Guardees > List requests and accept or decline (use the guardian account)\n  7. Locations > Update location (uses {{accessToken}})\n  8. Auth > Refresh (uses {{refreshToken}})\n  9. Auth > Logout (uses {{accessToken}})",
+    "description": "Postman collection for the zhu-server NestJS API. The server is mounted under the global /api prefix (see src/main.ts), so all paths below include it via the {{baseUrl}} variable (default: http://localhost:3000/api).\n\nRun the requests in this order to keep collection variables in sync:\n  1. App > Get status\n  2. Auth > Register (populates {{accessToken}} and {{refreshToken}})\n  3. Auth > Login (refreshes the tokens)\n  4. Auth > Me (uses {{accessToken}})\n  5. Locations > Update location (uses {{accessToken}})\n  6. User risks > Set liveness check (uses {{accessToken}})\n  7. User risks > Get liveness check statuses (uses {{accessToken}})\n  8. User risks > Respond to liveness check (uses {{accessToken}})\n  9. Auth > Refresh (uses {{refreshToken}})\n  10. Auth > Logout (uses {{accessToken}})",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -602,6 +602,54 @@
                   "var json = pm.response.json();",
                   "pm.test('Response is an array', function () {",
                   "  pm.expect(json).to.be.an('array');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Respond to liveness check",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": ""
+            },
+            "url": {
+              "raw": "{{baseUrl}}/user-risks/HIGH_RISK_AREA/liveness-check/respond",
+              "host": ["{{baseUrl}}"],
+              "path": [
+                "user-risks",
+                "HIGH_RISK_AREA",
+                "liveness-check",
+                "respond"
+              ]
+            },
+            "description": "POST /api/user-risks/:riskType/liveness-check/respond. Requires Authorization: Bearer {{accessToken}} (JwtAuthGuard). Resets the user's risk level for the given risk type to NONE and appends a UserRiskEvent. Returns { risk, event }."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 2xx', function () {",
+                  "  pm.expect(pm.response.code).to.be.oneOf([200, 201]);",
+                  "});",
+                  "var json = pm.response.json();",
+                  "pm.test('Response contains risk and event', function () {",
+                  "  pm.expect(json).to.be.an('object');",
+                  "  pm.expect(json).to.have.property('risk');",
+                  "  pm.expect(json).to.have.property('event');",
+                  "  pm.expect(json.risk.riskLevel).to.eql('NONE');",
                   "});"
                 ]
               }
