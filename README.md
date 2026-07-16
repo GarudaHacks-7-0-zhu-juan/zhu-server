@@ -31,6 +31,26 @@
 $ npm install
 ```
 
+## Local services
+
+The Nest application runs on the host. PostgreSQL and Redis run as isolated Docker Compose services.
+
+```bash
+# Copy the local environment template, then set non-default JWT secrets.
+$ cp .env.example .env
+
+# Start PostgreSQL on 5432 and Redis on 6379.
+$ docker compose up -d
+
+# Wait for both services to report healthy, then apply Prisma migrations.
+$ docker compose ps
+$ npm run prisma:migrate:deploy
+```
+
+`DATABASE_URL` and `REDIS_URL` in `.env.example` target the host-mapped Compose ports. PostgreSQL stores durable application data through Prisma; Redis is reserved for Pub/Sub and durable background queues. Both services persist data in named Docker volumes.
+
+Stop the local services with `docker compose down`. Add `--volumes` only when intentionally discarding local database and Redis data.
+
 ## Compile and run the project
 
 ```bash
