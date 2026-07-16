@@ -12,8 +12,7 @@ import { PushModule } from './push/push.module';
 import { UserRisksModule } from './user-risks/user-risks.module';
 import { QueueModule } from './queue/queue.module';
 import { RedisModule } from './redis/redis.module';
-import { RingNotificationsModule } from './ring-notifications/ring-notifications.module';
-import { RingsModule } from './rings/rings.module';
+import { GuardiansModule } from './guardians/guardians.module';
 
 @Module({
   imports: [
@@ -27,8 +26,7 @@ import { RingsModule } from './rings/rings.module';
     AuthModule,
     LocationsModule,
     UserRisksModule,
-    RingsModule,
-    RingNotificationsModule,
+    GuardiansModule,
     PushModule,
   ],
   controllers: [AppController],

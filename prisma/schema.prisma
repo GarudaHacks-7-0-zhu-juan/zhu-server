@@ -24,27 +24,30 @@ enum PushPlatform {
   ANDROID
 }
 
+enum GuardianRelationshipStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+}
+
 model User {
-  id                        String                 @id @default(uuid())
-  email                     String                 @unique
-  phoneNumber               String                 @unique
-  deviceId                  String                 @unique
-  passwordHash              String
-  refreshTokenHash          String?
-  outboxEvents              UserEventOutbox[]
-  location                  UserLocation?
-  locationEvents            UserLocationEvent[]
-  risks                     UserRisk[]
-  riskEvents                UserRiskEvent[]
-  riskNotifications         UserRiskNotification[]
-  ownedRings                UserRing[]             @relation("UserRingOwner")
-  ringMemberAssignments     UserRingMember[]       @relation("UserRingMemberOwner")
-  ringMemberships           UserRingMember[]       @relation("UserRingMember")
-  sentRingNotifications     UserRingNotification[] @relation("UserRingNotificationSender")
-  receivedRingNotifications UserRingNotification[] @relation("UserRingNotificationReceiver")
-  pushDevices               PushDevice[]
-  createdAt                 DateTime               @default(now())
-  updatedAt                 DateTime               @updatedAt
+  id                String                 @id @default(uuid())
+  email             String                 @unique
+  phoneNumber       String                 @unique
+  deviceId          String                 @unique
+  passwordHash      String
+  refreshTokenHash  String?
+  outboxEvents      UserEventOutbox[]
+  location          UserLocation?
+  locationEvents    UserLocationEvent[]
+  risks             UserRisk[]
+  riskEvents        UserRiskEvent[]
+  riskNotifications UserRiskNotification[]
+  asGuardian        GuardianRelationship[] @relation("Guardian")
+  asGuardee         GuardianRelationship[] @relation("Guardee")
+  pushDevices       PushDevice[]
+  createdAt         DateTime               @default(now())
+  updatedAt         DateTime               @updatedAt
 }
 
 model PushDevice {
@@ -61,48 +64,20 @@ model PushDevice {
   @@index([userId, enabled])
 }
 
-model UserRing {
-  id         String           @id @default(uuid())
-  ownerId    String
-  ringNumber Int
-  createdAt  DateTime         @default(now())
-  updatedAt  DateTime         @updatedAt
-  owner      User             @relation("UserRingOwner", fields: [ownerId], references: [id])
-  /// Memberships are live configuration and are removed with their ring.
-  members    UserRingMember[]
+model GuardianRelationship {
+  id          String                     @id @default(uuid())
+  guardianId  String
+  guardeeId   String
+  status      GuardianRelationshipStatus @default(PENDING)
+  requestedAt DateTime                   @default(now())
+  respondedAt DateTime?
+  updatedAt   DateTime                   @updatedAt
+  guardian    User                       @relation("Guardian", fields: [guardianId], references: [id])
+  guardee     User                       @relation("Guardee", fields: [guardeeId], references: [id])
 
-  @@unique([ownerId, ringNumber])
-  @@unique([id, ownerId])
-}
-
-model UserRingMember {
-  ownerId   String
-  memberId  String
-  ringId    String
-  createdAt DateTime @default(now())
-  owner     User     @relation("UserRingMemberOwner", fields: [ownerId], references: [id])
-  member    User     @relation("UserRingMember", fields: [memberId], references: [id])
-  /// Notification history stores snapshots, not this mutable configuration row.
-  ring      UserRing @relation(fields: [ringId, ownerId], references: [id, ownerId], onDelete: Cascade)
-
-  @@id([ownerId, memberId])
-  @@index([ringId])
-}
-
-model UserRingNotification {
-  id          String        @id @default(uuid())
-  riskEventId String
-  ringNumber  Int
-  senderId    String
-  receiverId  String
-  sentAt      DateTime      @default(now())
-  riskEvent   UserRiskEvent @relation(fields: [riskEventId], references: [id])
-  sender      User          @relation("UserRingNotificationSender", fields: [senderId], references: [id])
-  receiver    User          @relation("UserRingNotificationReceiver", fields: [receiverId], references: [id])
-
-  @@index([riskEventId])
-  @@index([senderId, sentAt])
-  @@index([receiverId, sentAt])
+  @@unique([guardianId, guardeeId])
+  @@index([guardianId, status])
+  @@index([guardeeId, status])
 }
 
 model UserEventOutbox {
@@ -160,13 +135,12 @@ model UserRisk {
 }
 
 model UserRiskEvent {
-  id                String                 @id @default(uuid())
-  userId            String
-  riskType          RiskType
-  riskLevel         RiskLevel
-  detectedAt        DateTime
-  user              User                   @relation(fields: [userId], references: [id])
-  ringNotifications UserRingNotification[]
+  id         String    @id @default(uuid())
+  userId     String
+  riskType   RiskType
+  riskLevel  RiskLevel
+  detectedAt DateTime
+  user       User      @relation(fields: [userId], references: [id])
 
   @@index([userId, riskType, detectedAt])
 }

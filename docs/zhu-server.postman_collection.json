@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "zhu-server",
-    "description": "Postman collection for the zhu-server NestJS API. The server is mounted under the global /api prefix (see src/main.ts), so all paths below include it via the {{baseUrl}} variable (default: http://localhost:3000/api).\n\nRun the requests in this order to keep collection variables in sync:\n  1. App > Get status\n  2. Auth > Register (populates {{accessToken}} and {{refreshToken}})\n  3. Auth > Login (refreshes the tokens)\n  4. Auth > Me (uses {{accessToken}})\n  5. Rings > Replace members (set {{memberId}} to another user's ID first)\n  6. Locations > Update location (uses {{accessToken}})\n  7. Auth > Refresh (uses {{refreshToken}})\n  8. Auth > Logout (uses {{accessToken}})",
+    "description": "Postman collection for the zhu-server NestJS API. The server is mounted under the global /api prefix (see src/main.ts), so all paths below include it via the {{baseUrl}} variable (default: http://localhost:3000/api).\n\nRun the requests in this order to keep collection variables in sync:\n  1. App > Get status\n  2. Auth > Register (populates {{accessToken}} and {{refreshToken}})\n  3. Auth > Login (refreshes the tokens)\n  4. Auth > Me (uses {{accessToken}})\n  5. Guardians > Request guardian (set {{guardianPhoneNumber}} to another registered user)\n  6. Guardees > List requests and accept or decline (use the guardian account)\n  7. Locations > Update location (uses {{accessToken}})\n  8. Auth > Refresh (uses {{refreshToken}})\n  9. Auth > Logout (uses {{accessToken}})",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -21,7 +21,17 @@
       "type": "string"
     },
     {
-      "key": "memberId",
+      "key": "guardianPhoneNumber",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "guardianId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "guardeeId",
       "value": "",
       "type": "string"
     }
@@ -276,31 +286,12 @@
       ]
     },
     {
-      "name": "Rings",
+      "name": "Guardians",
       "item": [
         {
-          "name": "List rings",
+          "name": "Request Guardian",
           "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{accessToken}}",
-                "type": "text"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/users/rings",
-              "host": ["{{baseUrl}}"],
-              "path": ["users", "rings"]
-            },
-            "description": "GET /api/users/rings. Requires Authorization: Bearer {{accessToken}}. Returns the authenticated user's rings and members."
-          }
-        },
-        {
-          "name": "Replace Ring 1 Members",
-          "request": {
-            "method": "PUT",
+            "method": "POST",
             "header": [
               {
                 "key": "Content-Type",
@@ -314,18 +305,37 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"memberIds\": [\"{{memberId}}\"]\n}"
+              "raw": "{\n  \"phoneNumber\": \"{{guardianPhoneNumber}}\"\n}"
             },
             "url": {
-              "raw": "{{baseUrl}}/users/rings/1",
+              "raw": "{{baseUrl}}/guardians/requests",
               "host": ["{{baseUrl}}"],
-              "path": ["users", "rings", "1"]
+              "path": ["guardians", "requests"]
             },
-            "description": "PUT /api/users/rings/:ringNumber. Requires Authorization: Bearer {{accessToken}}. Replaces the ring's membership; a member assigned to another ring is moved to this ring. Set {{memberId}} to another registered user's UUID."
+            "description": "POST /api/guardians/requests. Requires Authorization: Bearer {{accessToken}}. Requests that the registered user with {{guardianPhoneNumber}} becomes the authenticated user's guardian."
           }
         },
         {
-          "name": "Delete Ring 1",
+          "name": "List Guardians",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/guardians",
+              "host": ["{{baseUrl}}"],
+              "path": ["guardians"]
+            },
+            "description": "GET /api/guardians. Requires Authorization: Bearer {{accessToken}}. Lists the authenticated user's guardian requests and accepted guardians."
+          }
+        },
+        {
+          "name": "Remove Guardian",
           "request": {
             "method": "DELETE",
             "header": [
@@ -336,11 +346,119 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/users/rings/1",
+              "raw": "{{baseUrl}}/guardians/{{guardianId}}",
               "host": ["{{baseUrl}}"],
-              "path": ["users", "rings", "1"]
+              "path": ["guardians", "{{guardianId}}"]
             },
-            "description": "DELETE /api/users/rings/:ringNumber. Requires Authorization: Bearer {{accessToken}}. Deletes the ring and its current memberships."
+            "description": "DELETE /api/guardians/:guardianId. Requires Authorization: Bearer {{accessToken}}. Removes the selected guardian relationship."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Guardees",
+      "item": [
+        {
+          "name": "List Pending Requests",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/guardees/requests",
+              "host": ["{{baseUrl}}"],
+              "path": ["guardees", "requests"]
+            },
+            "description": "GET /api/guardees/requests. Requires the prospective guardian's access token. Lists pending guardian requests."
+          }
+        },
+        {
+          "name": "Accept Guardee Request",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"ACCEPTED\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/guardees/requests/{{guardeeId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["guardees", "requests", "{{guardeeId}}"]
+            },
+            "description": "PATCH /api/guardees/requests/:guardeeId. Requires the prospective guardian's access token. Use ACCEPTED or DECLINED."
+          }
+        },
+        {
+          "name": "List Guardees",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/guardees",
+              "host": ["{{baseUrl}}"],
+              "path": ["guardees"]
+            },
+            "description": "GET /api/guardees. Requires Authorization: Bearer {{accessToken}}. Lists accepted guardees."
+          }
+        },
+        {
+          "name": "Get Guardee Detail",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/guardees/{{guardeeId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["guardees", "{{guardeeId}}"]
+            },
+            "description": "GET /api/guardees/:guardeeId. Requires an accepted guardian relationship. Returns the guardee and current location; safety ping details are not implemented yet."
+          }
+        },
+        {
+          "name": "Remove Guardee",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/guardees/{{guardeeId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["guardees", "{{guardeeId}}"]
+            },
+            "description": "DELETE /api/guardees/:guardeeId. Requires Authorization: Bearer {{accessToken}}. Removes an accepted guardian relationship."
           }
         }
       ]
