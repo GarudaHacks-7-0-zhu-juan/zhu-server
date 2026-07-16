@@ -5,6 +5,7 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { KafkaModule } from './kafka/kafka.module';
 import { LocationConsumerModule } from './location-consumer/location-consumer.module';
+import { LivenessCheckModule } from './liveness-check/liveness-check.module';
 import { LocationsModule } from './locations/locations.module';
 import { OutboxModule } from './outbox/outbox.module';
 import { PrismaModule } from './prisma/prisma.module';
@@ -24,6 +25,7 @@ import { RedisModule } from './redis/redis.module';
     AuthModule,
     LocationsModule,
     UserRisksModule,
+    LivenessCheckModule,
   ],
   controllers: [AppController],
   providers: [AppService],
