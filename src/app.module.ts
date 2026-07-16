@@ -11,6 +11,8 @@ import { PrismaModule } from './prisma/prisma.module';
 import { UserRisksModule } from './user-risks/user-risks.module';
 import { QueueModule } from './queue/queue.module';
 import { RedisModule } from './redis/redis.module';
+import { RingNotificationsModule } from './ring-notifications/ring-notifications.module';
+import { RingsModule } from './rings/rings.module';
 
 @Module({
   imports: [
@@ -24,6 +26,8 @@ import { RedisModule } from './redis/redis.module';
     AuthModule,
     LocationsModule,
     UserRisksModule,
+    RingsModule,
+    RingNotificationsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

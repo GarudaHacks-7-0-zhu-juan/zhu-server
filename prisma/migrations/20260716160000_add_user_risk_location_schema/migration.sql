@@ -1,3 +1,4 @@
+-- This migration must run after the User table is created.
 -- CreateEnum
 CREATE TYPE "RiskLevel" AS ENUM ('NONE', 'LOW', 'MEDIUM', 'HIGH', 'CRITICAL');
 
