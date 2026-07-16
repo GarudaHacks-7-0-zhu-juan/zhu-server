@@ -20,10 +20,6 @@ export class FirebaseMessagingGateway {
   }
 
   async sendTestNotification(registrationToken: string): Promise<void> {
-    if (!this.messaging) {
-      throw new Error('Firebase messaging is unavailable');
-    }
-
     const message: Message = {
       token: registrationToken,
       notification: {
@@ -42,8 +38,29 @@ export class FirebaseMessagingGateway {
       },
     };
 
+    await this.send(message);
+  }
+
+  async sendTestLivenessCheck(registrationToken: string): Promise<void> {
+    await this.send({
+      token: registrationToken,
+      data: {
+        eventType: 'LIVENESS_CHECK',
+        riskType: 'HIGH_RISK_AREA',
+        title: 'Are you safe?',
+        body: 'Confirm that you are safe.',
+      },
+      android: { priority: 'high' },
+    });
+  }
+
+  private async send(message: Message): Promise<void> {
+    const messaging = this.messaging;
+    if (!messaging) {
+      throw new Error('Firebase messaging is unavailable');
+    }
     try {
-      await this.messaging.send(message);
+      await messaging.send(message);
     } catch (error) {
       const errorCode =
         error instanceof FirebaseMessagingError

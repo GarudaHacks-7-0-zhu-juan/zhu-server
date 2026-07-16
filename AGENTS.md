@@ -37,12 +37,12 @@
   truth for notification actions.
 - Keep Android channel ID `high_importance_channel` aligned with the Flutter
   client. Notification-plus-data messages are the default for visible alerts;
-  data-only background delivery is not guaranteed.
+  the liveness action test is an explicit high-priority data-only exception.
 - Fan-out must isolate per-device failures. Keep failed tokens enabled during the
   hackathon demo and log only the Firebase error code for diagnosis; never log
   complete registration tokens or Firebase error messages.
-- `POST /api/push/test` is self-targeted and must remain behind
-  `FCM_TEST_SEND_ENABLED`. Keep Firebase disabled in ordinary unit tests and use
-  injected fakes for gateway/service behavior.
-- Any `PushDevice` schema change requires a committed Prisma migration. Preserve
-  multiple installations per user and scoped unregister semantics.
+- `POST /api/push/test` and `/api/push/test/liveness-check` are self-targeted and
+  must remain behind `FCM_TEST_SEND_ENABLED`. Keep Firebase disabled in ordinary
+  unit tests and use injected fakes for gateway/service behavior.
+- Any `PushDevice` schema change requires a committed Prisma migration. Keep one
+  active token per user and preserve scoped unregister semantics.

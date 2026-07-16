@@ -41,6 +41,23 @@ describe('FirebaseMessagingGateway', () => {
     });
   });
 
+  it('maps a liveness test to a high-priority data message', async () => {
+    messaging.send.mockResolvedValue('message-id');
+
+    await gateway.sendTestLivenessCheck('registration-token');
+
+    expect(messaging.send).toHaveBeenCalledWith({
+      token: 'registration-token',
+      data: {
+        eventType: 'LIVENESS_CHECK',
+        riskType: 'HIGH_RISK_AREA',
+        title: 'Are you safe?',
+        body: 'Confirm that you are safe.',
+      },
+      android: { priority: 'high' },
+    });
+  });
+
   it.each(['registration-token-not-registered', 'invalid-recipient'])(
     'logs token error %s without its recipient',
     async (code) => {
