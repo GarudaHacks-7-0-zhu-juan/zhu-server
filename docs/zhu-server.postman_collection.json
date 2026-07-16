@@ -297,7 +297,7 @@
               "host": ["{{baseUrl}}"],
               "path": ["locations"]
             },
-            "description": "POST /api/locations. Requires Authorization: Bearer {{accessToken}} (JwtAuthGuard). Body: UpdateLocationDto { latitude, longitude }. Upserts the user's latest location in UserLocation and appends a history event to UserLocationEvent in a single transaction."
+            "description": "POST /api/locations. Requires Authorization: Bearer {{accessToken}} (JwtAuthGuard). Body: UpdateLocationDto { latitude, longitude }. Upserts the user's latest location in UserLocation and appends a history event to UserLocationEvent in a single transaction, then writes a UserEventOutbox row for Kafka dispatch."
           },
           "event": [
             {
