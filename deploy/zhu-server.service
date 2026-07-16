@@ -1,0 +1,19 @@
+[Unit]
+Description=Zhu Server API
+Wants=network-online.target
+After=network-online.target docker.service
+Requires=docker.service
+
+[Service]
+Type=simple
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/home/ubuntu/projects/garuda-hacks-7/zhu-server
+Environment=NODE_ENV=production
+EnvironmentFile=/home/ubuntu/projects/garuda-hacks-7/zhu-server/.env
+ExecStart=/usr/bin/node dist/main
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
