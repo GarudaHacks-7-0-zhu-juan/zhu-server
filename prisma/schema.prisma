@@ -154,3 +154,15 @@ model UserRiskNotification {
 
   @@index([userId, riskType, sentAt])
 }
+
+model EarthquakeEvent {
+  id           String   @id @default(uuid())
+  bmkgDateTime DateTime @unique
+  magnitude    Float
+  depthKm      Float
+  latitude     Float
+  longitude    Float
+  region       String
+  potential    String
+  fetchedAt    DateTime @default(now())
+}
