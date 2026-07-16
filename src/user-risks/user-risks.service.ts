@@ -20,6 +20,7 @@ export class UserRisksService {
     detectedAt: Date,
   ): Promise<{ risk: UserRisk; event: UserRiskEvent }> {
     const riskLevel = this.randomRiskLevel();
+    const livenessCheckEnabled = this.isHighOrCritical(riskLevel);
 
     const [risk, event] = await this.prisma.$transaction([
       this.prisma.userRisk.upsert({
@@ -33,10 +34,12 @@ export class UserRisksService {
           userId,
           riskType: RiskType.HIGH_RISK_AREA,
           riskLevel,
+          livenessCheckEnabled,
           updatedAt: detectedAt,
         },
         update: {
           riskLevel,
+          livenessCheckEnabled,
           updatedAt: detectedAt,
         },
       }),
@@ -113,11 +116,12 @@ export class UserRisksService {
           userId,
           riskType,
           riskLevel: RiskLevel.NONE,
-          livenessCheckEnabled: true,
+          livenessCheckEnabled: false,
           updatedAt: respondedAt,
         },
         update: {
           riskLevel: RiskLevel.NONE,
+          livenessCheckEnabled: false,
           updatedAt: respondedAt,
         },
       }),
@@ -137,5 +141,9 @@ export class UserRisksService {
   private randomRiskLevel(): RiskLevel {
     const index = Math.floor(Math.random() * RISK_LEVELS.length);
     return RISK_LEVELS[index];
+  }
+
+  private isHighOrCritical(riskLevel: RiskLevel): boolean {
+    return riskLevel === RiskLevel.HIGH || riskLevel === RiskLevel.CRITICAL;
   }
 }
