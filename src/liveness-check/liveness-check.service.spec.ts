@@ -15,6 +15,7 @@ describe('LivenessCheckService', () => {
   const mockPrisma = {
     $queryRaw: jest.fn(),
     userRiskNotification: { create: jest.fn() },
+    guardianRiskNotification: { create: jest.fn() },
   };
 
   const mockConfig = {
@@ -77,6 +78,20 @@ describe('LivenessCheckService', () => {
       const call = querySpy.mock.calls[0];
       expect(call).toContain(DEFAULT_LIVENESS_CHECK_RISK_AGE_SECONDS);
     });
+
+    it('uses the configured cooldown for guardian alerts', async () => {
+      mockConfig.get.mockImplementation((key: string) => {
+        if (key === LIVENESS_CHECK_RISK_AGE_SECONDS_ENV) return '120';
+        return undefined;
+      });
+      mockPrisma.$queryRaw.mockResolvedValue([]);
+      const querySpy = jest.spyOn(prisma, '$queryRaw');
+
+      await service.findGuardiansNeedingAlert();
+
+      expect(querySpy).toHaveBeenCalled();
+      expect(querySpy.mock.calls[0]).toContain(120);
+    });
   });
 
   describe('dispatchCheckBatch', () => {
@@ -97,8 +112,11 @@ describe('LivenessCheckService', () => {
         },
       ] as UserRisk[];
 
-      mockPrisma.$queryRaw.mockResolvedValue(users);
       const createSpy = jest.spyOn(prisma.userRiskNotification, 'create');
+
+      mockPrisma.$queryRaw
+        .mockResolvedValueOnce(users)
+        .mockResolvedValueOnce([]);
 
       await service.dispatchCheckBatch();
 
@@ -130,10 +148,50 @@ describe('LivenessCheckService', () => {
       });
     });
 
+    it('records an alert for every eligible guardian', async () => {
+      const now = new Date();
+      const alerts = [
+        {
+          guardianId: 'guardian-1',
+          guardeeId: 'guardee-1',
+          riskType: RiskType.HIGH_RISK_AREA,
+          riskLevel: RiskLevel.HIGH,
+        },
+        {
+          guardianId: 'guardian-2',
+          guardeeId: 'guardee-1',
+          riskType: RiskType.HIGH_RISK_AREA,
+          riskLevel: RiskLevel.CRITICAL,
+        },
+      ];
+      mockPrisma.$queryRaw
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce(alerts);
+      const createSpy = jest.spyOn(prisma.guardianRiskNotification, 'create');
+
+      await service.dispatchCheckBatch();
+
+      expect(consoleSpy).toHaveBeenCalledWith(
+        `[guardian-risk-alert] ${now.toISOString()} - 2 guardian alert(s) queued`,
+        alerts,
+      );
+      expect(createSpy).toHaveBeenCalledTimes(2);
+      expect(createSpy).toHaveBeenNthCalledWith(1, {
+        data: { ...alerts[0], sentAt: now },
+      });
+      expect(createSpy).toHaveBeenNthCalledWith(2, {
+        data: { ...alerts[1], sentAt: now },
+      });
+    });
+
     it('does nothing when no users need a check', async () => {
       const now = new Date();
-      mockPrisma.$queryRaw.mockResolvedValue([]);
+      mockPrisma.$queryRaw.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
       const createSpy = jest.spyOn(prisma.userRiskNotification, 'create');
+      const guardianCreateSpy = jest.spyOn(
+        prisma.guardianRiskNotification,
+        'create',
+      );
 
       await service.dispatchCheckBatch();
 
@@ -141,6 +199,7 @@ describe('LivenessCheckService', () => {
         `[liveness-check] ${now.toISOString()} - running liveness check dispatch`,
       );
       expect(createSpy).not.toHaveBeenCalled();
+      expect(guardianCreateSpy).not.toHaveBeenCalled();
     });
   });
 });

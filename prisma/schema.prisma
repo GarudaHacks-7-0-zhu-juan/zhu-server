@@ -31,22 +31,24 @@ enum GuardianRelationshipStatus {
 }
 
 model User {
-  id                String                 @id @default(uuid())
-  email             String                 @unique
-  phoneNumber       String                 @unique
-  passwordHash      String
-  refreshTokenHash  String?
-  outboxEvents      UserEventOutbox[]
-  location          UserLocation?
-  locationEvents    UserLocationEvent[]
-  risks             UserRisk[]
-  riskEvents        UserRiskEvent[]
-  riskNotifications UserRiskNotification[]
-  asGuardian        GuardianRelationship[] @relation("Guardian")
-  asGuardee         GuardianRelationship[] @relation("Guardee")
-  pushDevices       PushDevice[]
-  createdAt         DateTime               @default(now())
-  updatedAt         DateTime               @updatedAt
+  id                 String                     @id @default(uuid())
+  email              String                     @unique
+  phoneNumber        String                     @unique
+  passwordHash       String
+  refreshTokenHash   String?
+  outboxEvents       UserEventOutbox[]
+  location           UserLocation?
+  locationEvents     UserLocationEvent[]
+  risks              UserRisk[]
+  riskEvents         UserRiskEvent[]
+  riskNotifications  UserRiskNotification[]
+  asGuardian         GuardianRelationship[]     @relation("Guardian")
+  asGuardee          GuardianRelationship[]     @relation("Guardee")
+  guardianRiskAlerts GuardianRiskNotification[] @relation("GuardianRiskAlertRecipient")
+  guardeeRiskAlerts  GuardianRiskNotification[] @relation("GuardianRiskAlertSubject")
+  pushDevices        PushDevice[]
+  createdAt          DateTime                   @default(now())
+  updatedAt          DateTime                   @updatedAt
 }
 
 model PushDevice {
@@ -128,8 +130,8 @@ model UserRisk {
   riskType             RiskType
   riskLevel            RiskLevel
   updatedAt            DateTime
-  livenessCheckEnabled Boolean  @default(true)
-  user                 User     @relation(fields: [userId], references: [id])
+  livenessCheckEnabled Boolean   @default(true)
+  user                 User      @relation(fields: [userId], references: [id])
 
   @@id([userId, riskType])
 }
@@ -146,11 +148,24 @@ model UserRiskEvent {
 }
 
 model UserRiskNotification {
-  id        String   @id @default(uuid())
-  userId    String
-  riskType  RiskType
-  sentAt    DateTime
-  user      User     @relation(fields: [userId], references: [id])
+  id       String   @id @default(uuid())
+  userId   String
+  riskType RiskType
+  sentAt   DateTime
+  user     User     @relation(fields: [userId], references: [id])
 
   @@index([userId, riskType, sentAt])
+}
+
+model GuardianRiskNotification {
+  id         String    @id @default(uuid())
+  guardianId String
+  guardeeId  String
+  riskType   RiskType
+  riskLevel  RiskLevel
+  sentAt     DateTime
+  guardian   User      @relation("GuardianRiskAlertRecipient", fields: [guardianId], references: [id])
+  guardee    User      @relation("GuardianRiskAlertSubject", fields: [guardeeId], references: [id])
+
+  @@index([guardianId, guardeeId, riskType, sentAt])
 }
