@@ -12,6 +12,32 @@ model User {
   email            String   @unique
   passwordHash     String
   refreshTokenHash String?
+  outboxEvents     UserEventOutbox[]
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
+}
+
+model UserEventOutbox {
+  id          String   @id @default(uuid())
+  userId      String
+  sequence    Int
+  eventType   String
+  payload     Json
+  createdAt   DateTime @default(now())
+  publishedAt DateTime?
+  user        User     @relation(fields: [userId], references: [id])
+
+  @@unique([userId, sequence])
+  @@index([publishedAt, createdAt])
+}
+
+model ProcessedUserEvent {
+  consumerGroup String
+  userId        String
+  sequence      Int
+  eventId       String
+  processedAt   DateTime @default(now())
+
+  @@id([consumerGroup, userId])
+  @@unique([consumerGroup, eventId])
 }

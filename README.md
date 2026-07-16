@@ -39,7 +39,7 @@ The Nest application runs on the host. PostgreSQL and Redis run as isolated Dock
 # Copy the local environment template, then set non-default JWT secrets.
 $ cp .env.example .env
 
-# Start PostgreSQL on 5432 and Redis on 6379.
+# Start PostgreSQL on 5432, Redis on 6379, and Kafka on 9092.
 $ docker compose up -d
 
 # Wait for both services to report healthy, then apply Prisma migrations.
@@ -56,6 +56,12 @@ Stop the local services with `docker compose down`. Add `--volumes` only when in
 Redis Pub/Sub and BullMQ are configured for future asynchronous features. Pub/Sub provides best-effort live fan-out through `RedisPubSubService`; BullMQ provides the shared Redis connection for durable, retryable jobs.
 
 No channels, queues, or workers are registered until a product feature requires them.
+
+## Kafka events
+
+Kafka provides the durable, ordered event pipeline. The application provisions the fixed-partition `user-events.v1` topic and publishes user events with `userId` as the Kafka message key, preserving order for that user within the topic's current partition layout.
+
+`KafkaService` exposes keyed publishing and ordered consumer registration. `UserEventOutbox` and `ProcessedUserEvent` are Prisma models reserved for the transactional-outbox dispatcher and consumer checkpoints when a product event is introduced. The current Kafka integration test uses a test-only event and does not register a product event or worker.
 
 ## Compile and run the project
 

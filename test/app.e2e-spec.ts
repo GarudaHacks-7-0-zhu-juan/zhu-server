@@ -11,6 +11,7 @@ describe('AppController (e2e)', () => {
     process.env.JWT_ACCESS_SECRET = 'test-access-secret';
     process.env.JWT_REFRESH_SECRET = 'test-refresh-secret';
     process.env.REDIS_URL = 'redis://localhost:6379';
+    process.env.KAFKA_BROKERS = 'localhost:9092';
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     }).compile();
