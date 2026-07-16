@@ -22,6 +22,7 @@ describe('PushService', () => {
     isAvailable: true,
     sendTestNotification: jest.fn(),
     sendTestLivenessCheck: jest.fn(),
+    sendLivenessCheck: jest.fn(),
     sendGuardianRiskNotification: jest.fn(),
   };
   const config = { get: jest.fn() };
@@ -144,6 +145,25 @@ describe('PushService', () => {
       disabled: 0,
     });
     expect(gateway.sendTestLivenessCheck).toHaveBeenCalledWith('token-1');
+  });
+
+  it('sends production liveness checks to active Android devices', async () => {
+    prisma.pushDevice.findMany.mockResolvedValue([
+      { registrationToken: 'token-1' },
+      { registrationToken: 'token-2' },
+    ]);
+    gateway.sendLivenessCheck
+      .mockResolvedValueOnce(undefined)
+      .mockRejectedValueOnce(new Error('temporary failure'));
+
+    await expect(
+      service.sendLivenessCheck('user-1', RiskType.DISASTER),
+    ).resolves.toEqual({ sent: 1, failed: 1 });
+    expect(gateway.sendLivenessCheck).toHaveBeenNthCalledWith(
+      1,
+      'token-1',
+      RiskType.DISASTER,
+    );
   });
 
   it('fans guardian risk notifications out to active Android devices', async () => {

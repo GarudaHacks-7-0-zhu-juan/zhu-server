@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
 import { RiskLevel, RiskType, UserRisk } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { PushService } from '../push/push.service';
 import {
   DEFAULT_LIVENESS_CHECK_RISK_AGE_SECONDS,
   LIVENESS_CHECK_RISK_AGE_SECONDS_ENV,
@@ -16,6 +17,7 @@ describe('LivenessCheckService', () => {
     $queryRaw: jest.fn(),
     userRiskNotification: { create: jest.fn() },
   };
+  const mockPush = { sendLivenessCheck: jest.fn() };
 
   const mockConfig = {
     get: jest.fn(),
@@ -29,6 +31,7 @@ describe('LivenessCheckService', () => {
         LivenessCheckService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: ConfigService, useValue: mockConfig },
+        { provide: PushService, useValue: mockPush },
       ],
     }).compile();
 
@@ -39,6 +42,7 @@ describe('LivenessCheckService', () => {
     jest.setSystemTime(new Date('2026-07-16T12:00:00.000Z'));
 
     jest.clearAllMocks();
+    mockPush.sendLivenessCheck.mockResolvedValue({ sent: 1, failed: 0 });
     consoleSpy.mockClear();
   });
 
@@ -113,6 +117,17 @@ describe('LivenessCheckService', () => {
         ],
       );
 
+      expect(mockPush.sendLivenessCheck).toHaveBeenCalledTimes(2);
+      expect(mockPush.sendLivenessCheck).toHaveBeenNthCalledWith(
+        1,
+        'user-1',
+        RiskType.HIGH_RISK_AREA,
+      );
+      expect(mockPush.sendLivenessCheck).toHaveBeenNthCalledWith(
+        2,
+        'user-2',
+        RiskType.HIGH_RISK_AREA,
+      );
       expect(createSpy).toHaveBeenCalledTimes(2);
       expect(createSpy).toHaveBeenNthCalledWith(1, {
         data: {
@@ -140,6 +155,23 @@ describe('LivenessCheckService', () => {
       expect(consoleSpy).toHaveBeenCalledWith(
         `[liveness-check] ${now.toISOString()} - running liveness check dispatch`,
       );
+      expect(createSpy).not.toHaveBeenCalled();
+    });
+
+    it('does not record a notification when every device delivery fails', async () => {
+      const users = [
+        {
+          userId: 'user-1',
+          riskType: RiskType.HIGH_RISK_AREA,
+          riskLevel: RiskLevel.HIGH,
+        },
+      ] as UserRisk[];
+      mockPrisma.$queryRaw.mockResolvedValue(users);
+      mockPush.sendLivenessCheck.mockResolvedValue({ sent: 0, failed: 1 });
+      const createSpy = jest.spyOn(prisma.userRiskNotification, 'create');
+
+      await service.dispatchCheckBatch();
+
       expect(createSpy).not.toHaveBeenCalled();
     });
   });

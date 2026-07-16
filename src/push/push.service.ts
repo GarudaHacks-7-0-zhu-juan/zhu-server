@@ -89,6 +89,26 @@ export class PushService {
     );
   }
 
+  async sendLivenessCheck(
+    userId: string,
+    riskType: RiskType,
+  ): Promise<{ sent: number; failed: number }> {
+    const devices = await this.prisma.pushDevice.findMany({
+      where: { userId, enabled: true, platform: PushPlatform.ANDROID },
+      select: { registrationToken: true },
+    });
+    const results = await Promise.allSettled(
+      devices.map((device) =>
+        this.gateway.sendLivenessCheck(device.registrationToken, riskType),
+      ),
+    );
+
+    return {
+      sent: results.filter((result) => result.status === 'fulfilled').length,
+      failed: results.filter((result) => result.status === 'rejected').length,
+    };
+  }
+
   private async sendTest(
     userId: string,
     send: (registrationToken: string) => Promise<void>,
