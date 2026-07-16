@@ -57,7 +57,11 @@ jobs:
           cd /home/ubuntu/projects/garuda-hacks-7/zhu-server
           git switch main
           git pull --ff-only origin main
-          /usr/bin/node -e "if (Number(process.versions.node.split('.')[0]) < 22) process.exit(1)"
+          export NVM_DIR="$HOME/.nvm"
+          [ -s "$NVM_DIR/nvm.sh" ] || { echo "NVM is not installed" >&2; exit 1; }
+          . "$NVM_DIR/nvm.sh"
+          nvm use 22
+          node -e "if (Number(process.versions.node.split('.')[0]) < 22) process.exit(1)"
           npm ci
           npm run prisma:generate
           docker compose -f docker-compose.yml -f docker-compose.production.yml up -d --wait
