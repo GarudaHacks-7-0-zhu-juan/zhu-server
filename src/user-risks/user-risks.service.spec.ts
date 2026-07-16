@@ -82,10 +82,12 @@ describe('UserRisksService', () => {
           userId,
           riskType: RiskType.HIGH_RISK_AREA,
           riskLevel: RiskLevel.LOW,
+          livenessCheckEnabled: false,
           updatedAt: detectedAt,
         },
         update: {
           riskLevel: RiskLevel.LOW,
+          livenessCheckEnabled: false,
           updatedAt: detectedAt,
         },
       });
@@ -122,6 +124,30 @@ describe('UserRisksService', () => {
 
       const upsertCall = upsertSpy.mock.calls[0][0];
       expect(validLevels).toContain(upsertCall.create.riskLevel);
+    });
+
+    it('enables liveness checks for HIGH/CRITICAL and disables otherwise', async () => {
+      const detectedAt = new Date('2026-07-16T12:00:00.000Z');
+      const upsertSpy = jest
+        .spyOn(prisma.userRisk, 'upsert')
+        .mockResolvedValue({} as UserRisk);
+      jest
+        .spyOn(prisma.userRiskEvent, 'create')
+        .mockResolvedValue({} as UserRiskEvent);
+
+      jest.spyOn(Math, 'random').mockReturnValueOnce(0.75); // index 3 = CRITICAL
+      await service.evaluateRisk('user-1', 0, 0, detectedAt);
+      expect(upsertSpy.mock.calls[0][0].create.livenessCheckEnabled).toBe(true);
+      expect(upsertSpy.mock.calls[0][0].update.livenessCheckEnabled).toBe(true);
+
+      jest.spyOn(Math, 'random').mockReturnValueOnce(0); // index 0 = LOW
+      await service.evaluateRisk('user-1', 0, 0, detectedAt);
+      expect(upsertSpy.mock.calls[1][0].create.livenessCheckEnabled).toBe(
+        false,
+      );
+      expect(upsertSpy.mock.calls[1][0].update.livenessCheckEnabled).toBe(
+        false,
+      );
     });
   });
 
@@ -234,11 +260,12 @@ describe('UserRisksService', () => {
           userId,
           riskType,
           riskLevel: RiskLevel.NONE,
-          livenessCheckEnabled: true,
+          livenessCheckEnabled: false,
           updatedAt: respondedAt,
         },
         update: {
           riskLevel: RiskLevel.NONE,
+          livenessCheckEnabled: false,
           updatedAt: respondedAt,
         },
       });

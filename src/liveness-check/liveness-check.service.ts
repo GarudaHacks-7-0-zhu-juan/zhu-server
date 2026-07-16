@@ -15,18 +15,21 @@ export class LivenessCheckService {
   ) {}
 
   async findUsersNeedingCheck(): Promise<UserRisk[]> {
-    const ageSeconds = this.riskAgeSeconds();
+    const intervalSeconds = this.riskAgeSeconds();
 
     const rows = await this.prisma.$queryRaw<UserRisk[]>`
       SELECT ur.*
       FROM "UserRisk" ur
-      LEFT JOIN "UserRiskNotification" n
+      LEFT JOIN (
+        SELECT "userId", "riskType", MAX("sentAt") AS "lastSentAt"
+        FROM "UserRiskNotification"
+        GROUP BY "userId", "riskType"
+      ) n
         ON n."userId" = ur."userId" AND n."riskType" = ur."riskType"
       WHERE ur."riskType" = 'HIGH_RISK_AREA'
         AND ur."riskLevel" IN ('HIGH', 'CRITICAL')
         AND ur."livenessCheckEnabled" = true
-        AND ur."updatedAt" <= NOW() - INTERVAL '1 second' * ${ageSeconds}
-        AND (n."sentAt" IS NULL OR n."sentAt" < ur."updatedAt")
+        AND (n."lastSentAt" IS NULL OR n."lastSentAt" <= NOW() - INTERVAL '1 second' * ${intervalSeconds})
     `;
 
     return rows;
@@ -44,19 +47,10 @@ export class LivenessCheckService {
     }
 
     for (const user of users) {
-      await this.prisma.userRiskNotification.upsert({
-        where: {
-          userId_riskType: {
-            userId: user.userId,
-            riskType: RiskType.HIGH_RISK_AREA,
-          },
-        },
-        create: {
+      await this.prisma.userRiskNotification.create({
+        data: {
           userId: user.userId,
           riskType: RiskType.HIGH_RISK_AREA,
-          sentAt: now,
-        },
-        update: {
           sentAt: now,
         },
       });

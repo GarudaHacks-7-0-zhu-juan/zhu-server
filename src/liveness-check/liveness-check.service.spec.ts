@@ -14,7 +14,7 @@ describe('LivenessCheckService', () => {
 
   const mockPrisma = {
     $queryRaw: jest.fn(),
-    userRiskNotification: { upsert: jest.fn() },
+    userRiskNotification: { create: jest.fn() },
   };
 
   const mockConfig = {
@@ -98,7 +98,7 @@ describe('LivenessCheckService', () => {
       ] as UserRisk[];
 
       mockPrisma.$queryRaw.mockResolvedValue(users);
-      const upsertSpy = jest.spyOn(prisma.userRiskNotification, 'upsert');
+      const createSpy = jest.spyOn(prisma.userRiskNotification, 'create');
 
       await service.dispatchCheckBatch();
 
@@ -110,45 +110,31 @@ describe('LivenessCheckService', () => {
         ],
       );
 
-      expect(upsertSpy).toHaveBeenCalledTimes(2);
-      expect(upsertSpy).toHaveBeenNthCalledWith(1, {
-        where: {
-          userId_riskType: {
-            userId: 'user-1',
-            riskType: RiskType.HIGH_RISK_AREA,
-          },
-        },
-        create: {
+      expect(createSpy).toHaveBeenCalledTimes(2);
+      expect(createSpy).toHaveBeenNthCalledWith(1, {
+        data: {
           userId: 'user-1',
           riskType: RiskType.HIGH_RISK_AREA,
           sentAt: now,
         },
-        update: { sentAt: now },
       });
-      expect(upsertSpy).toHaveBeenNthCalledWith(2, {
-        where: {
-          userId_riskType: {
-            userId: 'user-2',
-            riskType: RiskType.HIGH_RISK_AREA,
-          },
-        },
-        create: {
+      expect(createSpy).toHaveBeenNthCalledWith(2, {
+        data: {
           userId: 'user-2',
           riskType: RiskType.HIGH_RISK_AREA,
           sentAt: now,
         },
-        update: { sentAt: now },
       });
     });
 
     it('does nothing when no users need a check', async () => {
       mockPrisma.$queryRaw.mockResolvedValue([]);
-      const upsertSpy = jest.spyOn(prisma.userRiskNotification, 'upsert');
+      const createSpy = jest.spyOn(prisma.userRiskNotification, 'create');
 
       await service.dispatchCheckBatch();
 
       expect(consoleSpy).not.toHaveBeenCalled();
-      expect(upsertSpy).not.toHaveBeenCalled();
+      expect(createSpy).not.toHaveBeenCalled();
     });
   });
 });
