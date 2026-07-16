@@ -9,10 +9,7 @@ import {
   envFlagEnabled,
   FCM_TEST_SEND_ENABLED_ENV,
 } from '../firebase/firebase.constants';
-import {
-  FirebaseMessagingGateway,
-  PermanentPushInstallationError,
-} from '../firebase/firebase-messaging.gateway';
+import { FirebaseMessagingGateway } from '../firebase/firebase-messaging.gateway';
 import { PrismaService } from '../prisma/prisma.service';
 import { RegisterPushDeviceDto } from './dto/register-push-device.dto';
 
@@ -73,7 +70,7 @@ export class PushService {
 
     const devices = await this.prisma.pushDevice.findMany({
       where: { userId, enabled: true, platform: PushPlatform.ANDROID },
-      select: { id: true, firebaseInstallationId: true },
+      select: { firebaseInstallationId: true },
     });
     if (devices.length === 0) {
       throw new NotFoundException('No active push devices found');
@@ -84,18 +81,6 @@ export class PushService {
         this.gateway.sendTestNotification(device.firebaseInstallationId),
       ),
     );
-    const invalidDeviceIds = results.flatMap((result, index) =>
-      result.status === 'rejected' &&
-      result.reason instanceof PermanentPushInstallationError
-        ? [devices[index].id]
-        : [],
-    );
-    const disabled = invalidDeviceIds.length
-      ? await this.prisma.pushDevice.updateMany({
-          where: { id: { in: invalidDeviceIds }, userId },
-          data: { enabled: false },
-        })
-      : { count: 0 };
     const sent = results.filter(
       (result) => result.status === 'fulfilled',
     ).length;
@@ -103,7 +88,7 @@ export class PushService {
     return {
       sent,
       failed: results.length - sent,
-      disabled: disabled.count,
+      disabled: 0,
     };
   }
 }

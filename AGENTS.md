@@ -37,10 +37,9 @@
 - Keep Android channel ID `high_importance_channel` aligned with the Flutter
   client. Notification-plus-data messages are the default for visible alerts;
   data-only background delivery is not guaranteed.
-- Fan-out must isolate per-device failures. Disable a FID only for documented
-  permanent recipient errors, especially
-  `messaging/installation-id-not-registered`; do not disable devices for generic
-  payload/configuration errors such as `messaging/invalid-argument`.
+- Fan-out must isolate per-device failures. Keep failed FIDs enabled during the
+  hackathon demo and log only the Firebase error code for diagnosis; never log
+  complete FIDs or Firebase error messages.
 - `POST /api/push/test` is self-targeted and must remain behind
   `FCM_TEST_SEND_ENABLED`. Keep Firebase disabled in ordinary unit tests and use
   injected fakes for gateway/service behavior.
