@@ -20,7 +20,7 @@ export class AuthService {
     private readonly config: ConfigService,
   ) {}
 
-  async register({ email, password, phoneNumber, deviceId }: RegisterDto) {
+  async register({ email, password, phoneNumber }: RegisterDto) {
     const existingUser = await this.users.findByEmail(email);
     if (existingUser) {
       throw new ConflictException('Email is already registered');
@@ -29,19 +29,14 @@ export class AuthService {
     const passwordHash = await bcrypt.hash(password, 12);
     let user;
     try {
-      user = await this.users.create(
-        email,
-        passwordHash,
-        phoneNumber,
-        deviceId,
-      );
+      user = await this.users.create(email, passwordHash, phoneNumber);
     } catch (error) {
       if (
         error instanceof Prisma.PrismaClientKnownRequestError &&
         error.code === 'P2002'
       ) {
         throw new ConflictException(
-          'Email, phone number, or device ID is already registered',
+          'Email or phone number is already registered',
         );
       }
       throw error;
@@ -49,13 +44,9 @@ export class AuthService {
     return this.issueTokens(user.id, user.email);
   }
 
-  async login({ email, password, deviceId }: LoginDto) {
+  async login({ email, password }: LoginDto) {
     const user = await this.users.findByEmail(email);
-    if (
-      !user ||
-      user.deviceId !== deviceId ||
-      !(await bcrypt.compare(password, user.passwordHash))
-    ) {
+    if (!user || !(await bcrypt.compare(password, user.passwordHash))) {
       throw new UnauthorizedException('Invalid email or password');
     }
 
