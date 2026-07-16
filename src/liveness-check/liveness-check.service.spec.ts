@@ -103,6 +103,9 @@ describe('LivenessCheckService', () => {
       await service.dispatchCheckBatch();
 
       expect(consoleSpy).toHaveBeenCalledWith(
+        `[liveness-check] ${now.toISOString()} - running liveness check dispatch`,
+      );
+      expect(consoleSpy).toHaveBeenCalledWith(
         `[liveness-check] ${now.toISOString()} - 2 user(s) need a liveness check`,
         [
           { userId: 'user-1', riskLevel: RiskLevel.HIGH },
@@ -128,12 +131,15 @@ describe('LivenessCheckService', () => {
     });
 
     it('does nothing when no users need a check', async () => {
+      const now = new Date();
       mockPrisma.$queryRaw.mockResolvedValue([]);
       const createSpy = jest.spyOn(prisma.userRiskNotification, 'create');
 
       await service.dispatchCheckBatch();
 
-      expect(consoleSpy).not.toHaveBeenCalled();
+      expect(consoleSpy).toHaveBeenCalledWith(
+        `[liveness-check] ${now.toISOString()} - running liveness check dispatch`,
+      );
       expect(createSpy).not.toHaveBeenCalled();
     });
   });
