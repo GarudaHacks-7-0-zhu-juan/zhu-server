@@ -1,6 +1,10 @@
 import { NotFoundException, ServiceUnavailableException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { PushPlatform } from '@prisma/client';
+import {
+  GuardianRiskNotificationTrigger,
+  PushPlatform,
+  RiskType,
+} from '@prisma/client';
 import { FCM_TEST_SEND_ENABLED_ENV } from '../firebase/firebase.constants';
 import { FirebaseMessagingGateway } from '../firebase/firebase-messaging.gateway';
 import { PrismaService } from '../prisma/prisma.service';
@@ -18,6 +22,7 @@ describe('PushService', () => {
     isAvailable: true,
     sendTestNotification: jest.fn(),
     sendTestLivenessCheck: jest.fn(),
+    sendGuardianRiskNotification: jest.fn(),
   };
   const config = { get: jest.fn() };
   const service = new PushService(
@@ -139,5 +144,24 @@ describe('PushService', () => {
       disabled: 0,
     });
     expect(gateway.sendTestLivenessCheck).toHaveBeenCalledWith('token-1');
+  });
+
+  it('fans guardian risk notifications out to active Android devices', async () => {
+    prisma.pushDevice.findMany.mockResolvedValue([
+      { registrationToken: 'token-1' },
+      { registrationToken: 'token-2' },
+    ]);
+    gateway.sendGuardianRiskNotification
+      .mockResolvedValueOnce(undefined)
+      .mockRejectedValueOnce(new Error('temporary failure'));
+
+    await expect(
+      service.sendGuardianRiskNotification(
+        'guardian-1',
+        RiskType.DISASTER,
+        GuardianRiskNotificationTrigger.NEGATIVE_RESPONSE,
+      ),
+    ).resolves.toEqual({ sent: 1, failed: 1 });
+    expect(gateway.sendGuardianRiskNotification).toHaveBeenCalledTimes(2);
   });
 });

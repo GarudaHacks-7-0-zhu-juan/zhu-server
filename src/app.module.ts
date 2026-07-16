@@ -1,8 +1,12 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { AccidentsModule } from './accidents/accidents.module';
 import { AuthModule } from './auth/auth.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
+import { BmkgModule } from './bmkg/bmkg.module';
+import { EarthquakeModule } from './earthquake/earthquake.module';
+import { GuardianNotificationModule } from './guardian-notification/guardian-notification.module';
 import { KafkaModule } from './kafka/kafka.module';
 import { LocationConsumerModule } from './location-consumer/location-consumer.module';
 import { LivenessCheckModule } from './liveness-check/liveness-check.module';
@@ -31,7 +35,11 @@ import { GuardiansModule } from './guardians/guardians.module';
     UserRisksModule,
     GuardiansModule,
     PushModule,
+    GuardianNotificationModule,
     LivenessCheckModule,
+    BmkgModule,
+    EarthquakeModule,
+    AccidentsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

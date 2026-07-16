@@ -91,11 +91,103 @@ export class UserRisksService {
     return risks;
   }
 
+  async setDisasterRisk(
+    userId: string,
+    riskLevel: RiskLevel,
+    detectedAt: Date,
+  ): Promise<{ risk: UserRisk; event: UserRiskEvent }> {
+    const livenessCheckEnabled = this.isHighOrCritical(riskLevel);
+
+    const [risk, event] = await this.prisma.$transaction([
+      this.prisma.userRisk.upsert({
+        where: {
+          userId_riskType: {
+            userId,
+            riskType: RiskType.DISASTER,
+          },
+        },
+        create: {
+          userId,
+          riskType: RiskType.DISASTER,
+          riskLevel,
+          livenessCheckEnabled,
+          updatedAt: detectedAt,
+        },
+        update: {
+          riskLevel,
+          livenessCheckEnabled,
+          updatedAt: detectedAt,
+        },
+      }),
+      this.prisma.userRiskEvent.create({
+        data: {
+          userId,
+          riskType: RiskType.DISASTER,
+          riskLevel,
+          detectedAt,
+        },
+      }),
+    ]);
+
+    return { risk, event };
+  }
+
+  async setAccidentRisk(
+    userId: string,
+    riskLevel: RiskLevel,
+    detectedAt: Date,
+  ): Promise<{ risk: UserRisk; event: UserRiskEvent }> {
+    const livenessCheckEnabled = this.isHighOrCritical(riskLevel);
+
+    const [risk, event] = await this.prisma.$transaction([
+      this.prisma.userRisk.upsert({
+        where: {
+          userId_riskType: {
+            userId,
+            riskType: RiskType.ACCIDENT,
+          },
+        },
+        create: {
+          userId,
+          riskType: RiskType.ACCIDENT,
+          riskLevel,
+          livenessCheckEnabled,
+          updatedAt: detectedAt,
+        },
+        update: {
+          riskLevel,
+          livenessCheckEnabled,
+          updatedAt: detectedAt,
+        },
+      }),
+      this.prisma.userRiskEvent.create({
+        data: {
+          userId,
+          riskType: RiskType.ACCIDENT,
+          riskLevel,
+          detectedAt,
+        },
+      }),
+    ]);
+
+    return { risk, event };
+  }
+
   async respondToLivenessCheck(
     userId: string,
     riskType: RiskType,
+    isOkay: boolean,
   ): Promise<{ risk: UserRisk; event: UserRiskEvent }> {
     const respondedAt = new Date();
+    const existingRisk = await this.prisma.userRisk.findUnique({
+      where: { userId_riskType: { userId, riskType } },
+    });
+    const riskLevel = isOkay
+      ? RiskLevel.NONE
+      : (existingRisk?.riskLevel ?? RiskLevel.NONE);
+    const livenessCheckEnabled = isOkay
+      ? false
+      : (existingRisk?.livenessCheckEnabled ?? false);
 
     const [risk, event] = await this.prisma.$transaction([
       this.prisma.userRisk.upsert({
@@ -108,13 +200,13 @@ export class UserRisksService {
         create: {
           userId,
           riskType,
-          riskLevel: RiskLevel.NONE,
-          livenessCheckEnabled: false,
+          riskLevel,
+          livenessCheckEnabled,
           updatedAt: respondedAt,
         },
         update: {
-          riskLevel: RiskLevel.NONE,
-          livenessCheckEnabled: false,
+          riskLevel,
+          livenessCheckEnabled,
           updatedAt: respondedAt,
         },
       }),
@@ -122,8 +214,9 @@ export class UserRisksService {
         data: {
           userId,
           riskType,
-          riskLevel: RiskLevel.NONE,
+          riskLevel,
           detectedAt: respondedAt,
+          isOkay,
         },
       }),
     ]);

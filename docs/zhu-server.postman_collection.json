@@ -216,6 +216,10 @@
             "method": "POST",
             "header": [
               {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
                 "key": "Authorization",
                 "value": "Bearer {{accessToken}}",
                 "type": "text"
@@ -223,7 +227,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": ""
+              "raw": "{\n  \"isOkay\": true\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/auth/logout",
@@ -633,7 +637,7 @@
                 "respond"
               ]
             },
-            "description": "POST /api/user-risks/:riskType/liveness-check/respond. Requires Authorization: Bearer {{accessToken}} (JwtAuthGuard). Resets the user's risk level for the given risk type to NONE and appends a UserRiskEvent. Returns { risk, event }."
+            "description": "POST /api/user-risks/:riskType/liveness-check/respond. Requires Authorization: Bearer {{accessToken}} (JwtAuthGuard) and a boolean isOkay body field. An affirmative response clears the risk level to NONE; a negative response preserves the current risk state, appends a UserRiskEvent, and immediately queues guardian notifications. Returns { risk, event }."
           },
           "event": [
             {
@@ -650,6 +654,59 @@
                   "  pm.expect(json).to.have.property('risk');",
                   "  pm.expect(json).to.have.property('event');",
                   "  pm.expect(json.risk.riskLevel).to.eql('NONE');",
+                  "  pm.expect(json.event.isOkay).to.eql(true);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Accidents",
+      "item": [
+        {
+          "name": "Record accident event",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"eventType\": \"FALL_DETECTED\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/accidents",
+              "host": ["{{baseUrl}}"],
+              "path": ["accidents"]
+            },
+            "description": "POST /api/accidents. Requires Authorization: Bearer {{accessToken}} (JwtAuthGuard). Body: { eventType: 'FALL_DETECTED' | 'MOVEMENT', detectedAt?: ISO string }. Records a fall or movement signal for the authenticated user. If detectedAt is omitted, the server uses the current time."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 201', function () {",
+                  "  pm.response.to.have.status(201);",
+                  "});",
+                  "var json = pm.response.json();",
+                  "pm.test('Response contains id, userId, eventType and detectedAt', function () {",
+                  "  pm.expect(json).to.have.property('id');",
+                  "  pm.expect(json).to.have.property('userId');",
+                  "  pm.expect(json).to.have.property('eventType');",
+                  "  pm.expect(json).to.have.property('detectedAt');",
                   "});"
                 ]
               }
