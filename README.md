@@ -47,9 +47,15 @@ $ docker compose ps
 $ npm run prisma:migrate:deploy
 ```
 
-`DATABASE_URL` and `REDIS_URL` in `.env.example` target the host-mapped Compose ports. PostgreSQL stores durable application data through Prisma; Redis is reserved for Pub/Sub and durable background queues. Both services persist data in named Docker volumes.
+`DATABASE_URL` and `REDIS_URL` in `.env.example` target the host-mapped Compose ports. PostgreSQL stores durable application data through Prisma; Redis provides transient Pub/Sub messages and durable BullMQ jobs. Both services persist data in named Docker volumes.
 
 Stop the local services with `docker compose down`. Add `--volumes` only when intentionally discarding local database and Redis data.
+
+## Background events
+
+Redis Pub/Sub and BullMQ are configured for future asynchronous features. Pub/Sub provides best-effort live fan-out through `RedisPubSubService`; BullMQ provides the shared Redis connection for durable, retryable jobs.
+
+No channels, queues, or workers are registered until a product feature requires them.
 
 ## Compile and run the project
 
