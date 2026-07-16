@@ -53,6 +53,48 @@ export class UserRisksService {
     return { risk, event };
   }
 
+  async setLivenessCheckEnabled(
+    userId: string,
+    riskType: RiskType,
+    enabled: boolean,
+  ): Promise<UserRisk> {
+    return this.prisma.userRisk.upsert({
+      where: {
+        userId_riskType: {
+          userId,
+          riskType,
+        },
+      },
+      create: {
+        userId,
+        riskType,
+        riskLevel: RiskLevel.NONE,
+        livenessCheckEnabled: enabled,
+        updatedAt: new Date(),
+      },
+      update: {
+        livenessCheckEnabled: enabled,
+      },
+    });
+  }
+
+  async getLivenessCheckStatuses(userId: string): Promise<
+    {
+      riskType: RiskType;
+      livenessCheckEnabled: boolean;
+    }[]
+  > {
+    const risks = await this.prisma.userRisk.findMany({
+      where: { userId },
+      select: {
+        riskType: true,
+        livenessCheckEnabled: true,
+      },
+    });
+
+    return risks;
+  }
+
   private randomRiskLevel(): RiskLevel {
     const index = Math.floor(Math.random() * RISK_LEVELS.length);
     return RISK_LEVELS[index];

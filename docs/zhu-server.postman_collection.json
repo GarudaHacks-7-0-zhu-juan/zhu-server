@@ -522,6 +522,93 @@
           ]
         }
       ]
+    },
+    {
+      "name": "User risks",
+      "item": [
+        {
+          "name": "Set liveness check",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"enabled\": false\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/user-risks/HIGH_RISK_AREA/liveness-check",
+              "host": ["{{baseUrl}}"],
+              "path": ["user-risks", "HIGH_RISK_AREA", "liveness-check"]
+            },
+            "description": "PATCH /api/user-risks/:riskType/liveness-check. Requires Authorization: Bearer {{accessToken}} (JwtAuthGuard). Body: { enabled: boolean }. Upserts a UserRisk row with livenessCheckEnabled for the authenticated user."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 2xx', function () {",
+                  "  pm.expect(pm.response.code).to.be.oneOf([200, 201]);",
+                  "});",
+                  "var json = pm.response.json();",
+                  "pm.test('Response has userId, riskType and livenessCheckEnabled', function () {",
+                  "  pm.expect(json).to.have.property('userId');",
+                  "  pm.expect(json).to.have.property('riskType');",
+                  "  pm.expect(json).to.have.property('livenessCheckEnabled');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get liveness check statuses",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/user-risks/liveness-check",
+              "host": ["{{baseUrl}}"],
+              "path": ["user-risks", "liveness-check"]
+            },
+            "description": "GET /api/user-risks/liveness-check. Requires Authorization: Bearer {{accessToken}} (JwtAuthGuard). Returns an array of { riskType, livenessCheckEnabled } for the authenticated user."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "var json = pm.response.json();",
+                  "pm.test('Response is an array', function () {",
+                  "  pm.expect(json).to.be.an('array');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
     }
   ]
 }
