@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "zhu-server",
-    "description": "Postman collection for the zhu-server NestJS API. The server is mounted under the global /api prefix (see src/main.ts), so all paths below include it via the {{baseUrl}} variable (default: http://localhost:3000/api).\n\nRun the requests in this order to keep collection variables in sync:\n  1. App > Get status\n  2. Auth > Register (populates {{accessToken}} and {{refreshToken}})\n  3. Auth > Login (refreshes the tokens)\n  4. Auth > Me (uses {{accessToken}})\n  5. Locations > Update location (uses {{accessToken}})\n  6. Auth > Refresh (uses {{refreshToken}})\n  7. Auth > Logout (uses {{accessToken}})",
+    "description": "Postman collection for the zhu-server NestJS API. The server is mounted under the global /api prefix (see src/main.ts), so all paths below include it via the {{baseUrl}} variable (default: http://localhost:3000/api).\n\nRun the requests in this order to keep collection variables in sync:\n  1. App > Get status\n  2. Auth > Register (populates {{accessToken}} and {{refreshToken}})\n  3. Auth > Login (refreshes the tokens)\n  4. Auth > Me (uses {{accessToken}})\n  5. Rings > Replace members (set {{memberId}} to another user's ID first)\n  6. Locations > Update location (uses {{accessToken}})\n  7. Auth > Refresh (uses {{refreshToken}})\n  8. Auth > Logout (uses {{accessToken}})",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -17,6 +17,11 @@
     },
     {
       "key": "refreshToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "memberId",
       "value": "",
       "type": "string"
     }
@@ -73,14 +78,14 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"test+user@example.com\",\n  \"password\": \"Password123\"\n}"
+              "raw": "{\n  \"email\": \"test+user@example.com\",\n  \"password\": \"Password123\",\n  \"phoneNumber\": \"+628123456789\",\n  \"deviceId\": \"postman-device-1\"\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/auth/register",
               "host": ["{{baseUrl}}"],
               "path": ["auth", "register"]
             },
-            "description": "POST /api/auth/register. Body: RegisterDto { email, password (min 8 chars) }. Returns { accessToken, refreshToken }. Throws 409 on duplicate email."
+            "description": "POST /api/auth/register. Body: RegisterDto { email, password (min 8 chars), phoneNumber (E.164), deviceId }. Returns { accessToken, refreshToken }. Throws 409 on duplicate email, phone number, or device ID."
           },
           "event": [
             {
@@ -119,14 +124,14 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"test+user@example.com\",\n  \"password\": \"Password123\"\n}"
+              "raw": "{\n  \"email\": \"test+user@example.com\",\n  \"password\": \"Password123\",\n  \"deviceId\": \"postman-device-1\"\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/auth/login",
               "host": ["{{baseUrl}}"],
               "path": ["auth", "login"]
             },
-            "description": "POST /api/auth/login (returns 200). Body: LoginDto { email, password (min 8 chars) }. Returns { accessToken, refreshToken }. Throws 401 on invalid credentials."
+            "description": "POST /api/auth/login (returns 200). Body: LoginDto { email, password (min 8 chars), deviceId }. Returns { accessToken, refreshToken }. Throws 401 on invalid credentials or a device mismatch."
           },
           "event": [
             {
@@ -267,6 +272,76 @@
               }
             }
           ]
+        }
+      ]
+    },
+    {
+      "name": "Rings",
+      "item": [
+        {
+          "name": "List rings",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/users/rings",
+              "host": ["{{baseUrl}}"],
+              "path": ["users", "rings"]
+            },
+            "description": "GET /api/users/rings. Requires Authorization: Bearer {{accessToken}}. Returns the authenticated user's rings and members."
+          }
+        },
+        {
+          "name": "Replace Ring 1 Members",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"memberIds\": [\"{{memberId}}\"]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/users/rings/1",
+              "host": ["{{baseUrl}}"],
+              "path": ["users", "rings", "1"]
+            },
+            "description": "PUT /api/users/rings/:ringNumber. Requires Authorization: Bearer {{accessToken}}. Replaces the ring's membership; a member assigned to another ring is moved to this ring. Set {{memberId}} to another registered user's UUID."
+          }
+        },
+        {
+          "name": "Delete Ring 1",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/users/rings/1",
+              "host": ["{{baseUrl}}"],
+              "path": ["users", "rings", "1"]
+            },
+            "description": "DELETE /api/users/rings/:ringNumber. Requires Authorization: Bearer {{accessToken}}. Deletes the ring and its current memberships."
+          }
         }
       ]
     },
