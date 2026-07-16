@@ -91,6 +91,47 @@ export class UserRisksService {
     return risks;
   }
 
+  async setDisasterRisk(
+    userId: string,
+    riskLevel: RiskLevel,
+    detectedAt: Date,
+  ): Promise<{ risk: UserRisk; event: UserRiskEvent }> {
+    const livenessCheckEnabled = this.isHighOrCritical(riskLevel);
+
+    const [risk, event] = await this.prisma.$transaction([
+      this.prisma.userRisk.upsert({
+        where: {
+          userId_riskType: {
+            userId,
+            riskType: RiskType.DISASTER,
+          },
+        },
+        create: {
+          userId,
+          riskType: RiskType.DISASTER,
+          riskLevel,
+          livenessCheckEnabled,
+          updatedAt: detectedAt,
+        },
+        update: {
+          riskLevel,
+          livenessCheckEnabled,
+          updatedAt: detectedAt,
+        },
+      }),
+      this.prisma.userRiskEvent.create({
+        data: {
+          userId,
+          riskType: RiskType.DISASTER,
+          riskLevel,
+          detectedAt,
+        },
+      }),
+    ]);
+
+    return { risk, event };
+  }
+
   async respondToLivenessCheck(
     userId: string,
     riskType: RiskType,

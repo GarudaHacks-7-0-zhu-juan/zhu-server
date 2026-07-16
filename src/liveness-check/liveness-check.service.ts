@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { RiskType, UserRisk } from '@prisma/client';
+import { UserRisk } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   DEFAULT_LIVENESS_CHECK_RISK_AGE_SECONDS,
@@ -26,8 +26,7 @@ export class LivenessCheckService {
         GROUP BY "userId", "riskType"
       ) n
         ON n."userId" = ur."userId" AND n."riskType" = ur."riskType"
-      WHERE ur."riskType" = 'HIGH_RISK_AREA'
-        AND ur."riskLevel" IN ('HIGH', 'CRITICAL')
+      WHERE ur."riskLevel" IN ('HIGH', 'CRITICAL')
         AND ur."livenessCheckEnabled" = true
         AND (n."lastSentAt" IS NULL OR n."lastSentAt" <= NOW() - INTERVAL '1 second' * ${intervalSeconds})
     `;
@@ -54,7 +53,7 @@ export class LivenessCheckService {
       await this.prisma.userRiskNotification.create({
         data: {
           userId: user.userId,
-          riskType: RiskType.HIGH_RISK_AREA,
+          riskType: user.riskType,
           sentAt: now,
         },
       });
