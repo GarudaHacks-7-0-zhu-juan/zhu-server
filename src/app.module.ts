@@ -8,6 +8,7 @@ import { LocationConsumerModule } from './location-consumer/location-consumer.mo
 import { LocationsModule } from './locations/locations.module';
 import { OutboxModule } from './outbox/outbox.module';
 import { PrismaModule } from './prisma/prisma.module';
+import { PushModule } from './push/push.module';
 import { UserRisksModule } from './user-risks/user-risks.module';
 import { QueueModule } from './queue/queue.module';
 import { RedisModule } from './redis/redis.module';
@@ -28,6 +29,7 @@ import { RingsModule } from './rings/rings.module';
     UserRisksModule,
     RingsModule,
     RingNotificationsModule,
+    PushModule,
   ],
   controllers: [AppController],
   providers: [AppService],
