@@ -483,14 +483,14 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"latitude\": -6.2088,\n  \"longitude\": 106.8456\n}"
+              "raw": "{\n  \"latitude\": -10.0,\n  \"longitude\": -20.0\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/locations",
               "host": ["{{baseUrl}}"],
               "path": ["locations"]
             },
-            "description": "POST /api/locations. Requires Authorization: Bearer {{accessToken}} (JwtAuthGuard). Body: UpdateLocationDto { latitude, longitude }. Upserts the user's latest location in UserLocation and appends a history event to UserLocationEvent in a single transaction, then writes a UserEventOutbox row for Kafka dispatch."
+            "description": "POST /api/locations. Requires Authorization: Bearer {{accessToken}} (JwtAuthGuard). Body: UpdateLocationDto { latitude, longitude }. Upserts the user's latest location in UserLocation and appends a history event to UserLocationEvent in a single transaction, then writes a UserEventOutbox row for Kafka dispatch. Risk evaluation: both latitude and longitude negative -> HIGH/CRITICAL risk (liveness check enabled); otherwise LOW/NONE risk."
           },
           "event": [
             {

@@ -2,13 +2,6 @@ import { Injectable } from '@nestjs/common';
 import { RiskLevel, RiskType, UserRisk, UserRiskEvent } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 
-const RISK_LEVELS: RiskLevel[] = [
-  RiskLevel.LOW,
-  RiskLevel.MEDIUM,
-  RiskLevel.HIGH,
-  RiskLevel.CRITICAL,
-];
-
 @Injectable()
 export class UserRisksService {
   constructor(private readonly prisma: PrismaService) {}
@@ -19,7 +12,7 @@ export class UserRisksService {
     longitude: number,
     detectedAt: Date,
   ): Promise<{ risk: UserRisk; event: UserRiskEvent }> {
-    const riskLevel = this.randomRiskLevel();
+    const riskLevel = this.evaluateRiskLevel(latitude, longitude);
     const livenessCheckEnabled = this.isHighOrCritical(riskLevel);
 
     const [risk, event] = await this.prisma.$transaction([
@@ -138,9 +131,14 @@ export class UserRisksService {
     return { risk, event };
   }
 
-  private randomRiskLevel(): RiskLevel {
-    const index = Math.floor(Math.random() * RISK_LEVELS.length);
-    return RISK_LEVELS[index];
+  private evaluateRiskLevel(latitude: number, longitude: number): RiskLevel {
+    const isNegativeQuadrant = latitude < 0 && longitude < 0;
+
+    if (isNegativeQuadrant) {
+      return Math.random() < 0.5 ? RiskLevel.HIGH : RiskLevel.CRITICAL;
+    }
+
+    return Math.random() < 0.5 ? RiskLevel.LOW : RiskLevel.NONE;
   }
 
   private isHighOrCritical(riskLevel: RiskLevel): boolean {
