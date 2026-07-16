@@ -102,10 +102,11 @@ model UserRiskEvent {
 }
 
 model UserRiskNotification {
-  userId   String
-  riskType RiskType
-  sentAt   DateTime
-  user     User     @relation(fields: [userId], references: [id])
+  id        String   @id @default(uuid())
+  userId    String
+  riskType  RiskType
+  sentAt    DateTime
+  user      User     @relation(fields: [userId], references: [id])
 
-  @@id([userId, riskType])
+  @@index([userId, riskType, sentAt])
 }
