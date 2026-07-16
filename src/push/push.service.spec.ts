@@ -37,17 +37,26 @@ describe('PushService', () => {
     jest.useRealTimers();
   });
 
-  it('upserts by FID and transfers ownership while re-enabling it', async () => {
+  it('keeps only the latest FID active while upserting ownership', async () => {
     const now = new Date('2026-07-16T18:00:00.000Z');
     jest.useFakeTimers({ now });
     const dto = {
       firebaseInstallationId: 'installation-id',
       platform: 'android' as const,
     };
+    prisma.pushDevice.updateMany.mockResolvedValue({ count: 2 });
     prisma.pushDevice.upsert.mockResolvedValue({ id: 'device-1' });
 
     await service.registerDevice('new-owner', dto);
 
+    expect(prisma.pushDevice.updateMany).toHaveBeenCalledWith({
+      where: {
+        userId: 'new-owner',
+        firebaseInstallationId: { not: 'installation-id' },
+        enabled: true,
+      },
+      data: { enabled: false },
+    });
     expect(prisma.pushDevice.upsert).toHaveBeenCalledWith({
       where: { firebaseInstallationId: 'installation-id' },
       create: {

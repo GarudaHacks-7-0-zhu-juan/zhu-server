@@ -21,7 +21,16 @@ export class PushService {
     private readonly config: ConfigService,
   ) {}
 
-  registerDevice(userId: string, dto: RegisterPushDeviceDto) {
+  async registerDevice(userId: string, dto: RegisterPushDeviceDto) {
+    await this.prisma.pushDevice.updateMany({
+      where: {
+        userId,
+        firebaseInstallationId: { not: dto.firebaseInstallationId },
+        enabled: true,
+      },
+      data: { enabled: false },
+    });
+
     return this.prisma.pushDevice.upsert({
       where: { firebaseInstallationId: dto.firebaseInstallationId },
       create: {
