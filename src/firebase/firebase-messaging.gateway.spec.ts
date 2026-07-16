@@ -58,6 +58,34 @@ describe('FirebaseMessagingGateway', () => {
     });
   });
 
+  it('maps a guardian risk notification to an Android token message', async () => {
+    messaging.send.mockResolvedValue('message-id');
+
+    await gateway.sendGuardianRiskNotification(
+      'registration-token',
+      'DISASTER',
+      'NEGATIVE_RESPONSE',
+    );
+
+    expect(messaging.send).toHaveBeenCalledWith({
+      token: 'registration-token',
+      notification: {
+        title: 'Guardee safety alert',
+        body: 'A guardee may need your attention.',
+      },
+      data: {
+        eventType: 'GUARDIAN_RISK_ALERT',
+        route: '/guardees',
+        riskType: 'DISASTER',
+        trigger: 'NEGATIVE_RESPONSE',
+      },
+      android: {
+        priority: 'high',
+        notification: { channelId: 'high_importance_channel' },
+      },
+    });
+  });
+
   it.each(['registration-token-not-registered', 'invalid-recipient'])(
     'logs token error %s without its recipient',
     async (code) => {

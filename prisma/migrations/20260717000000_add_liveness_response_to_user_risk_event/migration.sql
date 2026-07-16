@@ -1,0 +1,1 @@
+ALTER TABLE "UserRiskEvent" ADD COLUMN "isOkay" BOOLEAN;

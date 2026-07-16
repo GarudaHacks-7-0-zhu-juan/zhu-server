@@ -176,8 +176,18 @@ export class UserRisksService {
   async respondToLivenessCheck(
     userId: string,
     riskType: RiskType,
+    isOkay: boolean,
   ): Promise<{ risk: UserRisk; event: UserRiskEvent }> {
     const respondedAt = new Date();
+    const existingRisk = await this.prisma.userRisk.findUnique({
+      where: { userId_riskType: { userId, riskType } },
+    });
+    const riskLevel = isOkay
+      ? RiskLevel.NONE
+      : (existingRisk?.riskLevel ?? RiskLevel.NONE);
+    const livenessCheckEnabled = isOkay
+      ? false
+      : (existingRisk?.livenessCheckEnabled ?? false);
 
     const [risk, event] = await this.prisma.$transaction([
       this.prisma.userRisk.upsert({
@@ -190,13 +200,13 @@ export class UserRisksService {
         create: {
           userId,
           riskType,
-          riskLevel: RiskLevel.NONE,
-          livenessCheckEnabled: false,
+          riskLevel,
+          livenessCheckEnabled,
           updatedAt: respondedAt,
         },
         update: {
-          riskLevel: RiskLevel.NONE,
-          livenessCheckEnabled: false,
+          riskLevel,
+          livenessCheckEnabled,
           updatedAt: respondedAt,
         },
       }),
@@ -204,8 +214,9 @@ export class UserRisksService {
         data: {
           userId,
           riskType,
-          riskLevel: RiskLevel.NONE,
+          riskLevel,
           detectedAt: respondedAt,
+          isOkay,
         },
       }),
     ]);
