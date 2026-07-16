@@ -2,6 +2,7 @@ import { Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { KafkaService } from '../kafka/kafka.service';
 import { UserEvent } from '../kafka/kafka.types';
+import { UserRisksService } from '../user-risks/user-risks.service';
 import {
   DEFAULT_LOCATION_CONSUMER_GROUP,
   LOCATION_CONSUMER_ENABLED_ENV,
@@ -16,6 +17,7 @@ export class LocationConsumerService implements OnModuleInit, OnModuleDestroy {
 
   constructor(
     private readonly kafka: KafkaService,
+    private readonly userRisks: UserRisksService,
     private readonly config: ConfigService,
   ) {}
 
@@ -30,13 +32,18 @@ export class LocationConsumerService implements OnModuleInit, OnModuleDestroy {
 
     this.stop = await this.kafka.consumeUserEvents(
       groupId,
-      (event: UserEvent<LocationUpdatedPayload>) => {
+      async (event: UserEvent<LocationUpdatedPayload>) => {
         if (event.eventType !== LOCATION_UPDATED_EVENT_TYPE) {
-          return Promise.resolve();
+          return;
         }
 
-        console.log('[location-worker]', event);
-        return Promise.resolve();
+        const { latitude, longitude, detectedAt } = event.payload;
+        await this.userRisks.evaluateRisk(
+          event.userId,
+          latitude,
+          longitude,
+          new Date(detectedAt),
+        );
       },
     );
   }

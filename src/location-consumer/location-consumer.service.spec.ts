@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
 import { KafkaService } from '../kafka/kafka.service';
 import { UserEvent, UserEventHandler } from '../kafka/kafka.types';
+import { UserRisksService } from '../user-risks/user-risks.service';
 import {
   DEFAULT_LOCATION_CONSUMER_GROUP,
   LOCATION_CONSUMER_ENABLED_ENV,
@@ -12,35 +13,35 @@ import { LocationConsumerService } from './location-consumer.service';
 describe('LocationConsumerService', () => {
   let service: LocationConsumerService;
   let kafka: KafkaService;
+  let userRisks: UserRisksService;
 
   const mockKafka = {
     consumeUserEvents: jest.fn(),
+  };
+
+  const mockUserRisks = {
+    evaluateRisk: jest.fn().mockResolvedValue({}),
   };
 
   const mockConfig = {
     get: jest.fn(),
   };
 
-  const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
-
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         LocationConsumerService,
         { provide: KafkaService, useValue: mockKafka },
+        { provide: UserRisksService, useValue: mockUserRisks },
         { provide: ConfigService, useValue: mockConfig },
       ],
     }).compile();
 
     service = module.get<LocationConsumerService>(LocationConsumerService);
     kafka = module.get<KafkaService>(KafkaService);
+    userRisks = module.get<UserRisksService>(UserRisksService);
 
     jest.clearAllMocks();
-    consoleSpy.mockClear();
-  });
-
-  afterAll(() => {
-    consoleSpy.mockRestore();
   });
 
   describe('onModuleInit', () => {
@@ -102,8 +103,10 @@ describe('LocationConsumerService', () => {
       return consumeSpy.mock.calls[0][1];
     };
 
-    it('logs location updated events', async () => {
+    it('evaluates risk for location updated events', async () => {
       const handler = await getHandler();
+      const detectedAt = '2026-07-16T12:00:00.000Z';
+      const evaluateRiskSpy = jest.spyOn(userRisks, 'evaluateRisk');
 
       const event: UserEvent = {
         eventId: 'e-1',
@@ -114,18 +117,24 @@ describe('LocationConsumerService', () => {
         payload: {
           latitude: 1,
           longitude: 2,
-          detectedAt: new Date().toISOString(),
+          detectedAt,
           locationEventId: 'le-1',
         },
       };
 
       await handler(event);
 
-      expect(consoleSpy).toHaveBeenCalledWith('[location-worker]', event);
+      expect(evaluateRiskSpy).toHaveBeenCalledWith(
+        'user-1',
+        1,
+        2,
+        new Date(detectedAt),
+      );
     });
 
     it('ignores non-location events', async () => {
       const handler = await getHandler();
+      const evaluateRiskSpy = jest.spyOn(userRisks, 'evaluateRisk');
 
       const event: UserEvent = {
         eventId: 'e-2',
@@ -138,7 +147,7 @@ describe('LocationConsumerService', () => {
 
       await handler(event);
 
-      expect(consoleSpy).not.toHaveBeenCalled();
+      expect(evaluateRiskSpy).not.toHaveBeenCalled();
     });
   });
 
