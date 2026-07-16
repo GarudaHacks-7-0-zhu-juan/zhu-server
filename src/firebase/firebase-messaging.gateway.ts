@@ -19,13 +19,13 @@ export class FirebaseMessagingGateway {
     return this.messaging !== null;
   }
 
-  async sendTestNotification(firebaseInstallationId: string): Promise<void> {
+  async sendTestNotification(registrationToken: string): Promise<void> {
     if (!this.messaging) {
       throw new Error('Firebase messaging is unavailable');
     }
 
     const message: Message = {
-      fid: firebaseInstallationId,
+      token: registrationToken,
       notification: {
         title: 'Zhu test notification',
         body: 'Push notifications are working.',

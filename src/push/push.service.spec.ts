@@ -37,11 +37,11 @@ describe('PushService', () => {
     jest.useRealTimers();
   });
 
-  it('keeps only the latest FID active while upserting ownership', async () => {
+  it('keeps only the latest token active while upserting ownership', async () => {
     const now = new Date('2026-07-16T18:00:00.000Z');
     jest.useFakeTimers({ now });
     const dto = {
-      firebaseInstallationId: 'installation-id',
+      registrationToken: 'registration-token',
       platform: 'android' as const,
     };
     prisma.pushDevice.updateMany.mockResolvedValue({ count: 2 });
@@ -52,16 +52,16 @@ describe('PushService', () => {
     expect(prisma.pushDevice.updateMany).toHaveBeenCalledWith({
       where: {
         userId: 'new-owner',
-        firebaseInstallationId: { not: 'installation-id' },
+        registrationToken: { not: 'registration-token' },
         enabled: true,
       },
       data: { enabled: false },
     });
     expect(prisma.pushDevice.upsert).toHaveBeenCalledWith({
-      where: { firebaseInstallationId: 'installation-id' },
+      where: { registrationToken: 'registration-token' },
       create: {
         userId: 'new-owner',
-        firebaseInstallationId: 'installation-id',
+        registrationToken: 'registration-token',
         platform: PushPlatform.ANDROID,
       },
       update: {
@@ -77,12 +77,12 @@ describe('PushService', () => {
     prisma.pushDevice.updateMany.mockResolvedValue({ count: 0 });
 
     await expect(
-      service.removeDevice('user-1', 'other-users-installation'),
+      service.removeDevice('user-1', 'other-users-token'),
     ).rejects.toThrow(NotFoundException);
     expect(prisma.pushDevice.updateMany).toHaveBeenCalledWith({
       where: {
         userId: 'user-1',
-        firebaseInstallationId: 'other-users-installation',
+        registrationToken: 'other-users-token',
         enabled: true,
       },
       data: { enabled: false },
@@ -108,9 +108,9 @@ describe('PushService', () => {
 
   it('sends to every active Android device without disabling failures', async () => {
     prisma.pushDevice.findMany.mockResolvedValue([
-      { firebaseInstallationId: 'fid-1' },
-      { firebaseInstallationId: 'fid-2' },
-      { firebaseInstallationId: 'fid-3' },
+      { registrationToken: 'token-1' },
+      { registrationToken: 'token-2' },
+      { registrationToken: 'token-3' },
     ]);
     gateway.sendTestNotification
       .mockResolvedValueOnce(undefined)

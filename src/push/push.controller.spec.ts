@@ -22,7 +22,7 @@ describe('PushController', () => {
 
   it('scopes device registration to the authenticated user', async () => {
     const dto = {
-      firebaseInstallationId: 'installation-id',
+      registrationToken: 'registration-token',
       platform: 'android' as const,
     };
     push.registerDevice.mockResolvedValue({ id: 'device-1' });
@@ -35,9 +35,12 @@ describe('PushController', () => {
   it('scopes device removal to the authenticated user', async () => {
     push.removeDevice.mockResolvedValue({ disabled: true });
 
-    await controller.removeDevice(request, 'installation-id');
+    await controller.removeDevice(request, 'registration-token');
 
-    expect(push.removeDevice).toHaveBeenCalledWith('user-1', 'installation-id');
+    expect(push.removeDevice).toHaveBeenCalledWith(
+      'user-1',
+      'registration-token',
+    );
   });
 
   it('scopes test sends to the authenticated user', async () => {
