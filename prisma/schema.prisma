@@ -21,29 +21,77 @@ enum RiskType {
 }
 
 model User {
-  id                String                @id @default(uuid())
-  email             String                @unique
-  passwordHash      String
-  refreshTokenHash  String?
-  outboxEvents      UserEventOutbox[]
-  location          UserLocation?
-  locationEvents    UserLocationEvent[]
-  risks             UserRisk[]
-  riskEvents        UserRiskEvent[]
-  riskNotifications UserRiskNotification[]
-  createdAt         DateTime              @default(now())
-  updatedAt         DateTime              @updatedAt
+  id                        String                 @id @default(uuid())
+  email                     String                 @unique
+  phoneNumber               String?                @unique
+  deviceId                  String?                @unique
+  passwordHash              String
+  refreshTokenHash          String?
+  outboxEvents              UserEventOutbox[]
+  location                  UserLocation?
+  locationEvents            UserLocationEvent[]
+  risks                     UserRisk[]
+  riskEvents                UserRiskEvent[]
+  riskNotifications         UserRiskNotification[]
+  ownedRings                UserRing[]             @relation("UserRingOwner")
+  ringMemberAssignments     UserRingMember[]       @relation("UserRingMemberOwner")
+  ringMemberships           UserRingMember[]       @relation("UserRingMember")
+  sentRingNotifications     UserRingNotification[] @relation("UserRingNotificationSender")
+  receivedRingNotifications UserRingNotification[] @relation("UserRingNotificationReceiver")
+  createdAt                 DateTime               @default(now())
+  updatedAt                 DateTime               @updatedAt
+}
+
+model UserRing {
+  id         String           @id @default(uuid())
+  ownerId    String
+  ringNumber Int
+  createdAt  DateTime         @default(now())
+  updatedAt  DateTime         @updatedAt
+  owner      User             @relation("UserRingOwner", fields: [ownerId], references: [id])
+  members    UserRingMember[]
+
+  @@unique([ownerId, ringNumber])
+  @@unique([id, ownerId])
+}
+
+model UserRingMember {
+  ownerId   String
+  memberId  String
+  ringId    String
+  createdAt DateTime @default(now())
+  owner     User     @relation("UserRingMemberOwner", fields: [ownerId], references: [id])
+  member    User     @relation("UserRingMember", fields: [memberId], references: [id])
+  ring      UserRing @relation(fields: [ringId, ownerId], references: [id, ownerId])
+
+  @@id([ownerId, memberId])
+  @@index([ringId])
+}
+
+model UserRingNotification {
+  id         String    @id @default(uuid())
+  ringNumber Int
+  senderId   String
+  receiverId String
+  riskType   RiskType
+  riskLevel  RiskLevel
+  sentAt     DateTime  @default(now())
+  sender     User      @relation("UserRingNotificationSender", fields: [senderId], references: [id])
+  receiver   User      @relation("UserRingNotificationReceiver", fields: [receiverId], references: [id])
+
+  @@index([senderId, sentAt])
+  @@index([receiverId, sentAt])
 }
 
 model UserEventOutbox {
-  id          String   @id @default(uuid())
+  id          String    @id @default(uuid())
   userId      String
   sequence    Int
   eventType   String
   payload     Json
-  createdAt   DateTime @default(now())
+  createdAt   DateTime  @default(now())
   publishedAt DateTime?
-  user        User     @relation(fields: [userId], references: [id])
+  user        User      @relation(fields: [userId], references: [id])
 
   @@unique([userId, sequence])
   @@index([publishedAt, createdAt])
@@ -84,7 +132,7 @@ model UserRisk {
   riskType  RiskType
   riskLevel RiskLevel
   updatedAt DateTime
-  user      User     @relation(fields: [userId], references: [id])
+  user      User      @relation(fields: [userId], references: [id])
 
   @@id([userId, riskType])
 }
