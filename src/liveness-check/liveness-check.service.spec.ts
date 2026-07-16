@@ -103,7 +103,7 @@ describe('LivenessCheckService', () => {
       await service.dispatchCheckBatch();
 
       expect(consoleSpy).toHaveBeenCalledWith(
-        '[liveness-check] 2 user(s) need a liveness check',
+        `[liveness-check] ${now.toISOString()} - 2 user(s) need a liveness check`,
         [
           { userId: 'user-1', riskLevel: RiskLevel.HIGH },
           { userId: 'user-2', riskLevel: RiskLevel.CRITICAL },
