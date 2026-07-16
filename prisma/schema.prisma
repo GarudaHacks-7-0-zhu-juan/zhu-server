@@ -16,8 +16,14 @@ enum RiskLevel {
 }
 
 enum RiskType {
+  ACCIDENT
   DISASTER
   HIGH_RISK_AREA
+}
+
+enum AccidentEventType {
+  FALL_DETECTED
+  MOVEMENT
 }
 
 enum PushPlatform {
@@ -39,6 +45,7 @@ model User {
   outboxEvents      UserEventOutbox[]
   location          UserLocation?
   locationEvents    UserLocationEvent[]
+  accidentEvents    UserAccidentEvent[]
   risks             UserRisk[]
   riskEvents        UserRiskEvent[]
   riskNotifications UserRiskNotification[]
@@ -165,4 +172,14 @@ model EarthquakeEvent {
   region       String
   potential    String
   fetchedAt    DateTime @default(now())
+}
+
+model UserAccidentEvent {
+  id         String          @id @default(uuid())
+  userId     String
+  eventType  AccidentEventType
+  detectedAt DateTime
+  user       User            @relation(fields: [userId], references: [id])
+
+  @@index([userId, eventType, detectedAt])
 }
