@@ -9,8 +9,8 @@ export class LocationsService {
   async updateLocation(userId: string, dto: UpdateLocationDto) {
     const timestamp = new Date();
 
-    const [location, event] = await this.prisma.$transaction([
-      this.prisma.userLocation.upsert({
+    return this.prisma.$transaction(async (tx) => {
+      const location = await tx.userLocation.upsert({
         where: { userId },
         create: {
           userId,
@@ -23,17 +23,39 @@ export class LocationsService {
           longitude: dto.longitude,
           updatedAt: timestamp,
         },
-      }),
-      this.prisma.userLocationEvent.create({
+      });
+
+      const event = await tx.userLocationEvent.create({
         data: {
           userId,
           latitude: dto.latitude,
           longitude: dto.longitude,
           detectedAt: timestamp,
         },
-      }),
-    ]);
+      });
 
-    return { location, event };
+      const lastSequence = await tx.userEventOutbox.aggregate({
+        where: { userId },
+        _max: { sequence: true },
+      });
+
+      const sequence = (lastSequence._max.sequence ?? 0) + 1;
+
+      await tx.userEventOutbox.create({
+        data: {
+          userId,
+          sequence,
+          eventType: 'user.location.updated',
+          payload: {
+            latitude: dto.latitude,
+            longitude: dto.longitude,
+            detectedAt: timestamp.toISOString(),
+            locationEventId: event.id,
+          },
+        },
+      });
+
+      return { location, event };
+    });
   }
 }
