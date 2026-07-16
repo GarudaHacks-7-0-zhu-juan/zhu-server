@@ -2,10 +2,7 @@ import { NotFoundException, ServiceUnavailableException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PushPlatform } from '@prisma/client';
 import { FCM_TEST_SEND_ENABLED_ENV } from '../firebase/firebase.constants';
-import {
-  FirebaseMessagingGateway,
-  PermanentPushInstallationError,
-} from '../firebase/firebase-messaging.gateway';
+import { FirebaseMessagingGateway } from '../firebase/firebase-messaging.gateway';
 import { PrismaService } from '../prisma/prisma.service';
 import { PushService } from './push.service';
 
@@ -100,27 +97,23 @@ describe('PushService', () => {
     );
   });
 
-  it('sends to every active Android device and disables invalid FIDs', async () => {
+  it('sends to every active Android device without disabling failures', async () => {
     prisma.pushDevice.findMany.mockResolvedValue([
-      { id: 'device-1', firebaseInstallationId: 'fid-1' },
-      { id: 'device-2', firebaseInstallationId: 'fid-2' },
-      { id: 'device-3', firebaseInstallationId: 'fid-3' },
+      { firebaseInstallationId: 'fid-1' },
+      { firebaseInstallationId: 'fid-2' },
+      { firebaseInstallationId: 'fid-3' },
     ]);
     gateway.sendTestNotification
       .mockResolvedValueOnce(undefined)
-      .mockRejectedValueOnce(new PermanentPushInstallationError())
+      .mockRejectedValueOnce(new Error('invalid installation'))
       .mockRejectedValueOnce(new Error('temporary failure'));
-    prisma.pushDevice.updateMany.mockResolvedValue({ count: 1 });
 
     await expect(service.sendTestNotification('user-1')).resolves.toEqual({
       sent: 1,
       failed: 2,
-      disabled: 1,
+      disabled: 0,
     });
     expect(gateway.sendTestNotification).toHaveBeenCalledTimes(3);
-    expect(prisma.pushDevice.updateMany).toHaveBeenCalledWith({
-      where: { id: { in: ['device-2'] }, userId: 'user-1' },
-      data: { enabled: false },
-    });
+    expect(prisma.pushDevice.updateMany).not.toHaveBeenCalled();
   });
 });

@@ -1,17 +1,22 @@
+import { Logger } from '@nestjs/common';
 import { FirebaseMessagingError, Messaging } from 'firebase-admin/messaging';
-import {
-  FirebaseMessagingGateway,
-  PermanentPushInstallationError,
-} from './firebase-messaging.gateway';
+import { FirebaseMessagingGateway } from './firebase-messaging.gateway';
 
 describe('FirebaseMessagingGateway', () => {
   const messaging = { send: jest.fn() };
+  const loggerError = jest
+    .spyOn(Logger.prototype, 'error')
+    .mockImplementation(() => undefined);
   const gateway = new FirebaseMessagingGateway(
     messaging as unknown as Messaging,
   );
 
   beforeEach(() => {
     jest.clearAllMocks();
+  });
+
+  afterAll(() => {
+    loggerError.mockRestore();
   });
 
   it('maps a test notification to an Android FID message', async () => {
@@ -37,22 +42,27 @@ describe('FirebaseMessagingGateway', () => {
   });
 
   it.each(['installation-id-not-registered', 'invalid-recipient'])(
-    'maps permanent FID error %s',
+    'logs FID error %s without its recipient',
     async (code) => {
-      messaging.send.mockRejectedValue(
-        new FirebaseMessagingError({
-          code,
-          message: 'Installation is invalid',
-        }),
-      );
+      const error = new FirebaseMessagingError({
+        code,
+        message: 'Installation is invalid',
+      });
+      messaging.send.mockRejectedValue(error);
 
-      await expect(
-        gateway.sendTestNotification('installation-id'),
-      ).rejects.toThrow(PermanentPushInstallationError);
+      await expect(gateway.sendTestNotification('secret-fid')).rejects.toBe(
+        error,
+      );
+      expect(loggerError).toHaveBeenCalledWith(
+        `FCM send failed: messaging/${code}`,
+      );
+      expect(loggerError).not.toHaveBeenCalledWith(
+        expect.stringContaining('secret-fid'),
+      );
     },
   );
 
-  it('does not disable an installation for a generic invalid argument', async () => {
+  it('logs a generic invalid argument', async () => {
     messaging.send.mockRejectedValue(
       new FirebaseMessagingError({
         code: 'invalid-argument',
@@ -63,5 +73,11 @@ describe('FirebaseMessagingGateway', () => {
     await expect(
       gateway.sendTestNotification('installation-id'),
     ).rejects.toMatchObject({ code: 'messaging/invalid-argument' });
+    expect(loggerError).toHaveBeenCalledWith(
+      'FCM send failed: messaging/invalid-argument',
+    );
+    expect(loggerError).not.toHaveBeenCalledWith(
+      expect.stringContaining('installation-id'),
+    );
   });
 });

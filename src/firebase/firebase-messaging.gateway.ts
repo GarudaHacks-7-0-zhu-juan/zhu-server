@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import {
   FirebaseMessagingError,
   Message,
@@ -6,10 +6,10 @@ import {
 } from 'firebase-admin/messaging';
 import { FIREBASE_MESSAGING } from './firebase.constants';
 
-export class PermanentPushInstallationError extends Error {}
-
 @Injectable()
 export class FirebaseMessagingGateway {
+  private readonly logger = new Logger(FirebaseMessagingGateway.name);
+
   constructor(
     @Inject(FIREBASE_MESSAGING)
     private readonly messaging: Messaging | null,
@@ -45,15 +45,13 @@ export class FirebaseMessagingGateway {
     try {
       await this.messaging.send(message);
     } catch (error) {
-      if (
-        error instanceof FirebaseMessagingError &&
-        [
-          'messaging/installation-id-not-registered',
-          'messaging/invalid-recipient',
-        ].includes(error.code)
-      ) {
-        throw new PermanentPushInstallationError();
-      }
+      const errorCode =
+        error instanceof FirebaseMessagingError
+          ? error.code
+          : error instanceof Error
+            ? error.name
+            : 'unknown';
+      this.logger.error(`FCM send failed: ${errorCode}`);
       throw error;
     }
   }
