@@ -28,7 +28,7 @@ describe('AuthService', () => {
     jest.clearAllMocks();
   });
 
-  it('persists device and phone identifiers on registration', async () => {
+  it('persists email and phone identifiers on registration', async () => {
     users.findByEmail.mockResolvedValue(null);
     users.create.mockResolvedValue({ id: 'user-1', email: 'user@example.com' });
     jest.mocked(bcrypt.hash).mockResolvedValue('password-hash' as never);
@@ -40,33 +40,31 @@ describe('AuthService', () => {
       email: 'user@example.com',
       password: 'password123',
       phoneNumber: '+628123456789',
-      deviceId: 'device-1',
     });
 
     expect(users.create).toHaveBeenCalledWith(
       'user@example.com',
       'password-hash',
       '+628123456789',
-      'device-1',
     );
   });
 
-  it('denies login when the device differs before checking the password', async () => {
+  it('verifies the password when logging in', async () => {
     users.findByEmail.mockResolvedValue({
       id: 'user-1',
       email: 'user@example.com',
-      deviceId: 'registered-device',
       passwordHash: 'password-hash',
     });
+    jest.mocked(bcrypt.compare).mockResolvedValue(true as never);
+    jwt.signAsync
+      .mockResolvedValueOnce('access')
+      .mockResolvedValueOnce('refresh');
 
-    await expect(
-      service.login({
-        email: 'user@example.com',
-        password: 'password123',
-        deviceId: 'other-device',
-      }),
-    ).rejects.toThrow('Invalid email or password');
+    await service.login({
+      email: 'user@example.com',
+      password: 'password123',
+    });
 
-    expect(bcrypt.compare).not.toHaveBeenCalled();
+    expect(bcrypt.compare).toHaveBeenCalledWith('password123', 'password-hash');
   });
 });

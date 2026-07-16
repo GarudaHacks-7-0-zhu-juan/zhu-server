@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "zhu-server",
-    "description": "Postman collection for the zhu-server NestJS API. The server is mounted under the global /api prefix (see src/main.ts), so all paths below include it via the {{baseUrl}} variable (default: http://localhost:3000/api).\n\nRun the requests in this order to keep collection variables in sync:\n  1. App > Get status\n  2. Auth > Register (populates {{accessToken}} and {{refreshToken}})\n  3. Auth > Login (refreshes the tokens)\n  4. Auth > Me (uses {{accessToken}})\n  5. Guardians > Request guardian (set {{guardianPhoneNumber}} to another registered user)\n  6. Guardees > List requests and accept or decline (use the guardian account)\n  7. Locations > Update location (uses {{accessToken}})\n  8. Auth > Refresh (uses {{refreshToken}})\n  9. Auth > Logout (uses {{accessToken}})",
+    "description": "Postman collection for the zhu-server NestJS API. The server is mounted under the global /api prefix (see src/main.ts), so all paths below include it via the {{baseUrl}} variable (default: http://localhost:3000/api).\n\nRun the requests in this order to keep collection variables in sync:\n  1. App > Get status\n  2. Auth > Register (populates {{accessToken}} and {{refreshToken}})\n  3. Auth > Login (refreshes the tokens)\n  4. Auth > Me (uses {{accessToken}})\n  5. Locations > Update location (uses {{accessToken}})\n  6. User risks > Set liveness check (uses {{accessToken}})\n  7. User risks > Get liveness check statuses (uses {{accessToken}})\n  8. User risks > Respond to liveness check (uses {{accessToken}})\n  9. Auth > Refresh (uses {{refreshToken}})\n  10. Auth > Logout (uses {{accessToken}})",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -88,14 +88,14 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"test+user@example.com\",\n  \"password\": \"Password123\",\n  \"phoneNumber\": \"+628123456789\",\n  \"deviceId\": \"postman-device-1\"\n}"
+              "raw": "{\n  \"email\": \"test+user@example.com\",\n  \"password\": \"Password123\",\n  \"phoneNumber\": \"+628123456789\"\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/auth/register",
               "host": ["{{baseUrl}}"],
               "path": ["auth", "register"]
             },
-            "description": "POST /api/auth/register. Body: RegisterDto { email, password (min 8 chars), phoneNumber (E.164), deviceId }. Returns { accessToken, refreshToken }. Throws 409 on duplicate email, phone number, or device ID."
+            "description": "POST /api/auth/register. Body: RegisterDto { email, password (min 8 chars), phoneNumber (E.164) }. Returns { accessToken, refreshToken }. Throws 409 on duplicate email or phone number."
           },
           "event": [
             {
@@ -134,14 +134,14 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"test+user@example.com\",\n  \"password\": \"Password123\",\n  \"deviceId\": \"postman-device-1\"\n}"
+              "raw": "{\n  \"email\": \"test+user@example.com\",\n  \"password\": \"Password123\"\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/auth/login",
               "host": ["{{baseUrl}}"],
               "path": ["auth", "login"]
             },
-            "description": "POST /api/auth/login (returns 200). Body: LoginDto { email, password (min 8 chars), deviceId }. Returns { accessToken, refreshToken }. Throws 401 on invalid credentials or a device mismatch."
+            "description": "POST /api/auth/login (returns 200). Body: LoginDto { email, password (min 8 chars) }. Returns { accessToken, refreshToken }. Throws 401 on invalid credentials."
           },
           "event": [
             {
@@ -483,14 +483,14 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"latitude\": -6.2088,\n  \"longitude\": 106.8456\n}"
+              "raw": "{\n  \"latitude\": -10.0,\n  \"longitude\": -20.0\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/locations",
               "host": ["{{baseUrl}}"],
               "path": ["locations"]
             },
-            "description": "POST /api/locations. Requires Authorization: Bearer {{accessToken}} (JwtAuthGuard). Body: UpdateLocationDto { latitude, longitude }. Upserts the user's latest location in UserLocation and appends a history event to UserLocationEvent in a single transaction, then writes a UserEventOutbox row for Kafka dispatch."
+            "description": "POST /api/locations. Requires Authorization: Bearer {{accessToken}} (JwtAuthGuard). Body: UpdateLocationDto { latitude, longitude }. Upserts the user's latest location in UserLocation and appends a history event to UserLocationEvent in a single transaction, then writes a UserEventOutbox row for Kafka dispatch. Risk evaluation: both latitude and longitude negative -> HIGH/CRITICAL risk (liveness check enabled); otherwise LOW/NONE risk."
           },
           "event": [
             {
@@ -515,6 +515,141 @@
                   "  pm.expect(json.event).to.have.property('latitude');",
                   "  pm.expect(json.event).to.have.property('longitude');",
                   "  pm.expect(json.event).to.have.property('detectedAt');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "User risks",
+      "item": [
+        {
+          "name": "Set liveness check",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"enabled\": false\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/user-risks/HIGH_RISK_AREA/liveness-check",
+              "host": ["{{baseUrl}}"],
+              "path": ["user-risks", "HIGH_RISK_AREA", "liveness-check"]
+            },
+            "description": "PATCH /api/user-risks/:riskType/liveness-check. Requires Authorization: Bearer {{accessToken}} (JwtAuthGuard). Body: { enabled: boolean }. Upserts a UserRisk row with livenessCheckEnabled for the authenticated user."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 2xx', function () {",
+                  "  pm.expect(pm.response.code).to.be.oneOf([200, 201]);",
+                  "});",
+                  "var json = pm.response.json();",
+                  "pm.test('Response has userId, riskType and livenessCheckEnabled', function () {",
+                  "  pm.expect(json).to.have.property('userId');",
+                  "  pm.expect(json).to.have.property('riskType');",
+                  "  pm.expect(json).to.have.property('livenessCheckEnabled');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get liveness check statuses",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/user-risks/liveness-check",
+              "host": ["{{baseUrl}}"],
+              "path": ["user-risks", "liveness-check"]
+            },
+            "description": "GET /api/user-risks/liveness-check. Requires Authorization: Bearer {{accessToken}} (JwtAuthGuard). Returns an array of { riskType, livenessCheckEnabled } for the authenticated user."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "var json = pm.response.json();",
+                  "pm.test('Response is an array', function () {",
+                  "  pm.expect(json).to.be.an('array');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Respond to liveness check",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": ""
+            },
+            "url": {
+              "raw": "{{baseUrl}}/user-risks/HIGH_RISK_AREA/liveness-check/respond",
+              "host": ["{{baseUrl}}"],
+              "path": [
+                "user-risks",
+                "HIGH_RISK_AREA",
+                "liveness-check",
+                "respond"
+              ]
+            },
+            "description": "POST /api/user-risks/:riskType/liveness-check/respond. Requires Authorization: Bearer {{accessToken}} (JwtAuthGuard). Resets the user's risk level for the given risk type to NONE and appends a UserRiskEvent. Returns { risk, event }."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 2xx', function () {",
+                  "  pm.expect(pm.response.code).to.be.oneOf([200, 201]);",
+                  "});",
+                  "var json = pm.response.json();",
+                  "pm.test('Response contains risk and event', function () {",
+                  "  pm.expect(json).to.be.an('object');",
+                  "  pm.expect(json).to.have.property('risk');",
+                  "  pm.expect(json).to.have.property('event');",
+                  "  pm.expect(json.risk.riskLevel).to.eql('NONE');",
                   "});"
                 ]
               }
