@@ -3,11 +3,13 @@
 
   - A unique constraint covering the columns `[phoneNumber]` on the table `User` will be added. If there are existing duplicate values, this will fail.
   - A unique constraint covering the columns `[deviceId]` on the table `User` will be added. If there are existing duplicate values, this will fail.
+  - Added the required column `deviceId` to the `User` table without a default value. This is not possible if the table is not empty.
+  - Added the required column `phoneNumber` to the `User` table without a default value. This is not possible if the table is not empty.
 
 */
 -- AlterTable
-ALTER TABLE "User" ADD COLUMN     "deviceId" TEXT,
-ADD COLUMN     "phoneNumber" TEXT;
+ALTER TABLE "User" ADD COLUMN     "deviceId" TEXT NOT NULL,
+ADD COLUMN     "phoneNumber" TEXT NOT NULL;
 
 -- CreateTable
 CREATE TABLE "UserRing" (
@@ -33,11 +35,10 @@ CREATE TABLE "UserRingMember" (
 -- CreateTable
 CREATE TABLE "UserRingNotification" (
     "id" TEXT NOT NULL,
+    "riskEventId" TEXT NOT NULL,
     "ringNumber" INTEGER NOT NULL,
     "senderId" TEXT NOT NULL,
     "receiverId" TEXT NOT NULL,
-    "riskType" "RiskType" NOT NULL,
-    "riskLevel" "RiskLevel" NOT NULL,
     "sentAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "UserRingNotification_pkey" PRIMARY KEY ("id")
@@ -51,6 +52,9 @@ CREATE UNIQUE INDEX "UserRing_id_ownerId_key" ON "UserRing"("id", "ownerId");
 
 -- CreateIndex
 CREATE INDEX "UserRingMember_ringId_idx" ON "UserRingMember"("ringId");
+
+-- CreateIndex
+CREATE INDEX "UserRingNotification_riskEventId_idx" ON "UserRingNotification"("riskEventId");
 
 -- CreateIndex
 CREATE INDEX "UserRingNotification_senderId_sentAt_idx" ON "UserRingNotification"("senderId", "sentAt");
@@ -74,7 +78,11 @@ ALTER TABLE "UserRingMember" ADD CONSTRAINT "UserRingMember_ownerId_fkey" FOREIG
 ALTER TABLE "UserRingMember" ADD CONSTRAINT "UserRingMember_memberId_fkey" FOREIGN KEY ("memberId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "UserRingMember" ADD CONSTRAINT "UserRingMember_ringId_ownerId_fkey" FOREIGN KEY ("ringId", "ownerId") REFERENCES "UserRing"("id", "ownerId") ON DELETE RESTRICT ON UPDATE CASCADE;
+-- Ring membership is live configuration; notification history stores independent snapshots.
+ALTER TABLE "UserRingMember" ADD CONSTRAINT "UserRingMember_ringId_ownerId_fkey" FOREIGN KEY ("ringId", "ownerId") REFERENCES "UserRing"("id", "ownerId") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "UserRingNotification" ADD CONSTRAINT "UserRingNotification_riskEventId_fkey" FOREIGN KEY ("riskEventId") REFERENCES "UserRiskEvent"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "UserRingNotification" ADD CONSTRAINT "UserRingNotification_senderId_fkey" FOREIGN KEY ("senderId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;

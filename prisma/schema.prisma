@@ -23,8 +23,8 @@ enum RiskType {
 model User {
   id                        String                 @id @default(uuid())
   email                     String                 @unique
-  phoneNumber               String?                @unique
-  deviceId                  String?                @unique
+  phoneNumber               String                 @unique
+  deviceId                  String                 @unique
   passwordHash              String
   refreshTokenHash          String?
   outboxEvents              UserEventOutbox[]
@@ -49,6 +49,7 @@ model UserRing {
   createdAt  DateTime         @default(now())
   updatedAt  DateTime         @updatedAt
   owner      User             @relation("UserRingOwner", fields: [ownerId], references: [id])
+  /// Memberships are live configuration and are removed with their ring.
   members    UserRingMember[]
 
   @@unique([ownerId, ringNumber])
@@ -62,23 +63,25 @@ model UserRingMember {
   createdAt DateTime @default(now())
   owner     User     @relation("UserRingMemberOwner", fields: [ownerId], references: [id])
   member    User     @relation("UserRingMember", fields: [memberId], references: [id])
-  ring      UserRing @relation(fields: [ringId, ownerId], references: [id, ownerId])
+  /// Notification history stores snapshots, not this mutable configuration row.
+  ring      UserRing @relation(fields: [ringId, ownerId], references: [id, ownerId], onDelete: Cascade)
 
   @@id([ownerId, memberId])
   @@index([ringId])
 }
 
 model UserRingNotification {
-  id         String    @id @default(uuid())
-  ringNumber Int
-  senderId   String
-  receiverId String
-  riskType   RiskType
-  riskLevel  RiskLevel
-  sentAt     DateTime  @default(now())
-  sender     User      @relation("UserRingNotificationSender", fields: [senderId], references: [id])
-  receiver   User      @relation("UserRingNotificationReceiver", fields: [receiverId], references: [id])
+  id          String        @id @default(uuid())
+  riskEventId String
+  ringNumber  Int
+  senderId    String
+  receiverId  String
+  sentAt      DateTime      @default(now())
+  riskEvent   UserRiskEvent @relation(fields: [riskEventId], references: [id])
+  sender      User          @relation("UserRingNotificationSender", fields: [senderId], references: [id])
+  receiver    User          @relation("UserRingNotificationReceiver", fields: [receiverId], references: [id])
 
+  @@index([riskEventId])
   @@index([senderId, sentAt])
   @@index([receiverId, sentAt])
 }
@@ -138,12 +141,13 @@ model UserRisk {
 }
 
 model UserRiskEvent {
-  id         String    @id @default(uuid())
-  userId     String
-  riskType   RiskType
-  riskLevel  RiskLevel
-  detectedAt DateTime
-  user       User      @relation(fields: [userId], references: [id])
+  id                String                 @id @default(uuid())
+  userId            String
+  riskType          RiskType
+  riskLevel         RiskLevel
+  detectedAt        DateTime
+  user              User                   @relation(fields: [userId], references: [id])
+  ringNotifications UserRingNotification[]
 
   @@index([userId, riskType, detectedAt])
 }
