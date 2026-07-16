@@ -25,20 +25,18 @@ describe('User handling (e2e)', () => {
     await app.close();
   });
 
-  it('binds login to a device and manages guardian relationships', async () => {
+  it('manages guardian relationships', async () => {
     const suffix = Date.now();
     const phoneSeed = String(suffix).slice(-8);
     const guardee = {
       email: `guardee-${suffix}@example.com`,
       password: 'password123',
       phoneNumber: `+628${phoneSeed}01`,
-      deviceId: `guardee-device-${suffix}`,
     };
     const guardian = {
       email: `guardian-${suffix}@example.com`,
       password: 'password123',
       phoneNumber: `+628${phoneSeed}02`,
-      deviceId: `guardian-device-${suffix}`,
     };
 
     const guardeeRegistration = await request(app.getHttpServer())
@@ -49,11 +47,6 @@ describe('User handling (e2e)', () => {
       .post('/api/auth/register')
       .send(guardian)
       .expect(201);
-
-    await request(app.getHttpServer())
-      .post('/api/auth/login')
-      .send({ ...guardee, deviceId: 'unregistered-device' })
-      .expect(401);
 
     const guardeeIdentity = await request(app.getHttpServer())
       .get('/api/auth/me')

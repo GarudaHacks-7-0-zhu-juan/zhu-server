@@ -84,15 +84,15 @@ export class PushService {
         this.gateway.sendTestNotification(device.firebaseInstallationId),
       ),
     );
-    const invalidDeviceIds = results.flatMap((result, index) =>
+    const invalidPushIds = results.flatMap((result, index) =>
       result.status === 'rejected' &&
       result.reason instanceof PermanentPushInstallationError
         ? [devices[index].id]
         : [],
     );
-    const disabled = invalidDeviceIds.length
+    const disabled = invalidPushIds.length
       ? await this.prisma.pushDevice.updateMany({
-          where: { id: { in: invalidDeviceIds }, userId },
+          where: { id: { in: invalidPushIds }, userId },
           data: { enabled: false },
         })
       : { count: 0 };

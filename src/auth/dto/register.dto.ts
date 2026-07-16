@@ -1,10 +1,4 @@
-import {
-  IsEmail,
-  IsString,
-  Matches,
-  MaxLength,
-  MinLength,
-} from 'class-validator';
+import { IsEmail, IsString, Matches, MinLength } from 'class-validator';
 
 export class RegisterDto {
   @IsEmail()
@@ -16,9 +10,4 @@ export class RegisterDto {
 
   @Matches(/^\+[1-9]\d{7,14}$/)
   phoneNumber!: string;
-
-  @IsString()
-  @MinLength(1)
-  @MaxLength(255)
-  deviceId!: string;
 }
