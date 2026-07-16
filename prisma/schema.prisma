@@ -36,6 +36,11 @@ enum GuardianRelationshipStatus {
   DECLINED
 }
 
+enum GuardianRiskNotificationTrigger {
+  LIVENESS_TIMEOUT
+  NEGATIVE_RESPONSE
+}
+
 model User {
   id                String                 @id @default(uuid())
   email             String                 @unique
@@ -49,6 +54,8 @@ model User {
   risks             UserRisk[]
   riskEvents        UserRiskEvent[]
   riskNotifications UserRiskNotification[]
+  guardianRiskNotificationsSent     GuardianRiskNotification[] @relation("GuardianRiskNotificationGuardian")
+  guardianRiskNotificationsReceived GuardianRiskNotification[] @relation("GuardianRiskNotificationGuardee")
   asGuardian        GuardianRelationship[] @relation("Guardian")
   asGuardee         GuardianRelationship[] @relation("Guardee")
   pushDevices       PushDevice[]
@@ -147,6 +154,7 @@ model UserRiskEvent {
   riskType   RiskType
   riskLevel  RiskLevel
   detectedAt DateTime
+  isOkay     Boolean?
   user       User      @relation(fields: [userId], references: [id])
 
   @@index([userId, riskType, detectedAt])
@@ -160,6 +168,21 @@ model UserRiskNotification {
   user      User     @relation(fields: [userId], references: [id])
 
   @@index([userId, riskType, sentAt])
+}
+
+model GuardianRiskNotification {
+  id              String                           @id @default(uuid())
+  guardianId      String
+  guardeeId       String
+  riskType        RiskType
+  trigger         GuardianRiskNotificationTrigger
+  responseEventId String?
+  sentAt          DateTime
+  guardian        User                             @relation("GuardianRiskNotificationGuardian", fields: [guardianId], references: [id])
+  guardee         User                             @relation("GuardianRiskNotificationGuardee", fields: [guardeeId], references: [id])
+
+  @@unique([guardianId, responseEventId])
+  @@index([guardianId, guardeeId, riskType, trigger, sentAt])
 }
 
 model EarthquakeEvent {

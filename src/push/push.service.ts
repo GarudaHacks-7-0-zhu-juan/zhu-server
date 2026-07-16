@@ -1,10 +1,15 @@
 import {
   Injectable,
+  Logger,
   NotFoundException,
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { PushPlatform } from '@prisma/client';
+import {
+  GuardianRiskNotificationTrigger,
+  PushPlatform,
+  RiskType,
+} from '@prisma/client';
 import {
   envFlagEnabled,
   FCM_TEST_SEND_ENABLED_ENV,
@@ -15,6 +20,7 @@ import { RegisterPushDeviceDto } from './dto/register-push-device.dto';
 
 @Injectable()
 export class PushService {
+  private readonly logger = new Logger(PushService.name);
   constructor(
     private readonly prisma: PrismaService,
     private readonly gateway: FirebaseMessagingGateway,
@@ -115,6 +121,42 @@ export class PushService {
       sent,
       failed: results.length - sent,
       disabled: 0,
+    };
+  }
+
+  async sendGuardianRiskNotification(
+    guardianId: string,
+    riskType: RiskType,
+    trigger: GuardianRiskNotificationTrigger,
+  ): Promise<{ sent: number; failed: number }> {
+    if (!this.gateway.isAvailable) {
+      this.logger.warn(
+        'Skipping guardian risk notification: Firebase unavailable',
+      );
+      return { sent: 0, failed: 0 };
+    }
+
+    const devices = await this.prisma.pushDevice.findMany({
+      where: {
+        userId: guardianId,
+        enabled: true,
+        platform: PushPlatform.ANDROID,
+      },
+      select: { registrationToken: true },
+    });
+    const results = await Promise.allSettled(
+      devices.map((device) =>
+        this.gateway.sendGuardianRiskNotification(
+          device.registrationToken,
+          riskType,
+          trigger,
+        ),
+      ),
+    );
+
+    return {
+      sent: results.filter((result) => result.status === 'fulfilled').length,
+      failed: results.filter((result) => result.status === 'rejected').length,
     };
   }
 }

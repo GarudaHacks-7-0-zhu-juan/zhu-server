@@ -41,6 +41,30 @@ export class FirebaseMessagingGateway {
     await this.send(message);
   }
 
+  async sendGuardianRiskNotification(
+    registrationToken: string,
+    riskType: string,
+    trigger: string,
+  ): Promise<void> {
+    await this.send({
+      token: registrationToken,
+      notification: {
+        title: 'Guardee safety alert',
+        body: 'A guardee may need your attention.',
+      },
+      data: {
+        eventType: 'GUARDIAN_RISK_ALERT',
+        route: '/guardees',
+        riskType,
+        trigger,
+      },
+      android: {
+        priority: 'high',
+        notification: { channelId: 'high_importance_channel' },
+      },
+    });
+  }
+
   async sendTestLivenessCheck(registrationToken: string): Promise<void> {
     await this.send({
       token: registrationToken,

@@ -7,5 +7,6 @@ import { PushService } from './push.service';
   imports: [FirebaseModule],
   controllers: [PushController],
   providers: [PushService],
+  exports: [PushService],
 })
 export class PushModule {}
