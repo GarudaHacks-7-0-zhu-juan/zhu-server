@@ -25,71 +25,90 @@ describe('User handling (e2e)', () => {
     await app.close();
   });
 
-  it('binds login to a device and manages ring memberships', async () => {
+  it('binds login to a device and manages guardian relationships', async () => {
     const suffix = Date.now();
     const phoneSeed = String(suffix).slice(-8);
-    const owner = {
-      email: `owner-${suffix}@example.com`,
+    const guardee = {
+      email: `guardee-${suffix}@example.com`,
       password: 'password123',
       phoneNumber: `+628${phoneSeed}01`,
-      deviceId: `owner-device-${suffix}`,
+      deviceId: `guardee-device-${suffix}`,
     };
-    const member = {
-      email: `member-${suffix}@example.com`,
+    const guardian = {
+      email: `guardian-${suffix}@example.com`,
       password: 'password123',
       phoneNumber: `+628${phoneSeed}02`,
-      deviceId: `member-device-${suffix}`,
+      deviceId: `guardian-device-${suffix}`,
     };
 
-    const ownerRegistration = await request(app.getHttpServer())
+    const guardeeRegistration = await request(app.getHttpServer())
       .post('/api/auth/register')
-      .send(owner)
+      .send(guardee)
       .expect(201);
     await request(app.getHttpServer())
       .post('/api/auth/register')
-      .send(member)
+      .send(guardian)
       .expect(201);
 
     await request(app.getHttpServer())
       .post('/api/auth/login')
-      .send({ ...owner, deviceId: 'unregistered-device' })
+      .send({ ...guardee, deviceId: 'unregistered-device' })
       .expect(401);
 
-    const memberIdentity = await request(app.getHttpServer())
+    const guardeeIdentity = await request(app.getHttpServer())
       .get('/api/auth/me')
-      .set('Authorization', `Bearer ${ownerRegistration.body.accessToken}`)
+      .set('Authorization', `Bearer ${guardeeRegistration.body.accessToken}`)
       .expect(200);
-    const ownerId = memberIdentity.body.sub as string;
+    const guardeeId = guardeeIdentity.body.sub as string;
 
-    const memberLogin = await request(app.getHttpServer())
+    const guardianLogin = await request(app.getHttpServer())
       .post('/api/auth/login')
-      .send(member)
-      .expect(200);
-    const memberIdentityResponse = await request(app.getHttpServer())
-      .get('/api/auth/me')
-      .set('Authorization', `Bearer ${memberLogin.body.accessToken}`)
+      .send(guardian)
       .expect(200);
 
     await request(app.getHttpServer())
-      .put('/api/users/rings/1')
-      .set('Authorization', `Bearer ${ownerRegistration.body.accessToken}`)
-      .send({ memberIds: [memberIdentityResponse.body.sub] })
-      .expect(200)
+      .post('/api/guardians/requests')
+      .set('Authorization', `Bearer ${guardeeRegistration.body.accessToken}`)
+      .send({ phoneNumber: guardian.phoneNumber })
+      .expect(201)
       .expect(({ body }) => {
-        expect(body.ownerId).toBe(ownerId);
-        expect(body.ringNumber).toBe(1);
-        expect(body.members).toHaveLength(1);
+        expect(body.status).toBe('PENDING');
+        expect(body.guardian.email).toBe(guardian.email);
       });
 
     await request(app.getHttpServer())
-      .delete('/api/users/rings/1')
-      .set('Authorization', `Bearer ${ownerRegistration.body.accessToken}`)
-      .expect(204);
+      .get('/api/guardees/requests')
+      .set('Authorization', `Bearer ${guardianLogin.body.accessToken}`)
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body).toHaveLength(1);
+        expect(body[0].guardee.id).toBe(guardeeId);
+      });
 
     await request(app.getHttpServer())
-      .get('/api/users/rings')
-      .set('Authorization', `Bearer ${ownerRegistration.body.accessToken}`)
+      .patch(`/api/guardees/requests/${guardeeId}`)
+      .set('Authorization', `Bearer ${guardianLogin.body.accessToken}`)
+      .send({ status: 'ACCEPTED' })
+      .expect(200);
+
+    await request(app.getHttpServer())
+      .post('/api/locations')
+      .set('Authorization', `Bearer ${guardeeRegistration.body.accessToken}`)
+      .send({ latitude: -6.2088, longitude: 106.8456 })
+      .expect(201);
+
+    await request(app.getHttpServer())
+      .get(`/api/guardees/${guardeeId}`)
+      .set('Authorization', `Bearer ${guardianLogin.body.accessToken}`)
       .expect(200)
-      .expect([]);
+      .expect(({ body }) => {
+        expect(body.guardee.id).toBe(guardeeId);
+        expect(body.location.latitude).toBe('-6.2088');
+      });
+
+    await request(app.getHttpServer())
+      .delete(`/api/guardees/${guardeeId}`)
+      .set('Authorization', `Bearer ${guardianLogin.body.accessToken}`)
+      .expect(204);
   });
 });
