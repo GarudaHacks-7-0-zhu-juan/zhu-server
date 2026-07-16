@@ -28,12 +28,12 @@ export class PushController {
     return this.push.registerDevice(request.user.sub, dto);
   }
 
-  @Delete('devices/:firebaseInstallationId')
+  @Delete('devices/:registrationToken')
   removeDevice(
     @Req() request: AuthenticatedRequest,
-    @Param('firebaseInstallationId') firebaseInstallationId: string,
+    @Param('registrationToken') registrationToken: string,
   ) {
-    return this.push.removeDevice(request.user.sub, firebaseInstallationId);
+    return this.push.removeDevice(request.user.sub, registrationToken);
   }
 
   @Post('test')

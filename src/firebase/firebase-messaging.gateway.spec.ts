@@ -19,13 +19,13 @@ describe('FirebaseMessagingGateway', () => {
     loggerError.mockRestore();
   });
 
-  it('maps a test notification to an Android FID message', async () => {
+  it('maps a test notification to an Android token message', async () => {
     messaging.send.mockResolvedValue('message-id');
 
-    await gateway.sendTestNotification('installation-id');
+    await gateway.sendTestNotification('registration-token');
 
     expect(messaging.send).toHaveBeenCalledWith({
-      fid: 'installation-id',
+      token: 'registration-token',
       notification: {
         title: 'Zhu test notification',
         body: 'Push notifications are working.',
@@ -41,8 +41,8 @@ describe('FirebaseMessagingGateway', () => {
     });
   });
 
-  it.each(['installation-id-not-registered', 'invalid-recipient'])(
-    'logs FID error %s without its recipient',
+  it.each(['registration-token-not-registered', 'invalid-recipient'])(
+    'logs token error %s without its recipient',
     async (code) => {
       const error = new FirebaseMessagingError({
         code,
@@ -50,14 +50,14 @@ describe('FirebaseMessagingGateway', () => {
       });
       messaging.send.mockRejectedValue(error);
 
-      await expect(gateway.sendTestNotification('secret-fid')).rejects.toBe(
+      await expect(gateway.sendTestNotification('secret-token')).rejects.toBe(
         error,
       );
       expect(loggerError).toHaveBeenCalledWith(
         `FCM send failed: messaging/${code}`,
       );
       expect(loggerError).not.toHaveBeenCalledWith(
-        expect.stringContaining('secret-fid'),
+        expect.stringContaining('secret-token'),
       );
     },
   );
@@ -71,13 +71,13 @@ describe('FirebaseMessagingGateway', () => {
     );
 
     await expect(
-      gateway.sendTestNotification('installation-id'),
+      gateway.sendTestNotification('registration-token'),
     ).rejects.toMatchObject({ code: 'messaging/invalid-argument' });
     expect(loggerError).toHaveBeenCalledWith(
       'FCM send failed: messaging/invalid-argument',
     );
     expect(loggerError).not.toHaveBeenCalledWith(
-      expect.stringContaining('installation-id'),
+      expect.stringContaining('registration-token'),
     );
   });
 });

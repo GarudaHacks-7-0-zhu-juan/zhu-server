@@ -19,15 +19,16 @@
 
 ## Push Notifications
 
-- Push delivery is currently Android-only and targets Firebase Installation IDs
-  (FIDs). Do not add or persist deprecated FCM registration-token targeting.
+- Push delivery is currently Android-only and uses FCM registration tokens for
+  hackathon reliability. Keep one active token per user and update it from the
+  client token-refresh stream.
 - Firebase Admin uses Application Default Credentials. Enable it with
   `FCM_ENABLED`, set `FIREBASE_PROJECT_ID`, and point
   `GOOGLE_APPLICATION_CREDENTIALS` to a key outside the repository. Never log
-  credentials or complete FIDs.
+  credentials or complete registration tokens.
 - Device endpoints are authenticated and derive ownership from
   `request.user.sub`; never accept a user ID from the request body. Registration
-  is an idempotent FID upsert that transfers ownership during account changes.
+  is an idempotent token upsert that transfers ownership during account changes.
 - Keep Firebase SDK access behind `FirebaseMessagingGateway`. Business modules
   should call an application-level push service rather than importing
   `getMessaging()` or duplicating payload/error handling.
@@ -37,9 +38,9 @@
 - Keep Android channel ID `high_importance_channel` aligned with the Flutter
   client. Notification-plus-data messages are the default for visible alerts;
   data-only background delivery is not guaranteed.
-- Fan-out must isolate per-device failures. Keep failed FIDs enabled during the
+- Fan-out must isolate per-device failures. Keep failed tokens enabled during the
   hackathon demo and log only the Firebase error code for diagnosis; never log
-  complete FIDs or Firebase error messages.
+  complete registration tokens or Firebase error messages.
 - `POST /api/push/test` is self-targeted and must remain behind
   `FCM_TEST_SEND_ENABLED`. Keep Firebase disabled in ordinary unit tests and use
   injected fakes for gateway/service behavior.

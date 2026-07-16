@@ -25,17 +25,17 @@ export class PushService {
     await this.prisma.pushDevice.updateMany({
       where: {
         userId,
-        firebaseInstallationId: { not: dto.firebaseInstallationId },
+        registrationToken: { not: dto.registrationToken },
         enabled: true,
       },
       data: { enabled: false },
     });
 
     return this.prisma.pushDevice.upsert({
-      where: { firebaseInstallationId: dto.firebaseInstallationId },
+      where: { registrationToken: dto.registrationToken },
       create: {
         userId,
-        firebaseInstallationId: dto.firebaseInstallationId,
+        registrationToken: dto.registrationToken,
         platform: PushPlatform.ANDROID,
       },
       update: {
@@ -49,10 +49,10 @@ export class PushService {
 
   async removeDevice(
     userId: string,
-    firebaseInstallationId: string,
+    registrationToken: string,
   ): Promise<{ disabled: true }> {
     const result = await this.prisma.pushDevice.updateMany({
-      where: { userId, firebaseInstallationId, enabled: true },
+      where: { userId, registrationToken, enabled: true },
       data: { enabled: false },
     });
 
@@ -79,7 +79,7 @@ export class PushService {
 
     const devices = await this.prisma.pushDevice.findMany({
       where: { userId, enabled: true, platform: PushPlatform.ANDROID },
-      select: { firebaseInstallationId: true },
+      select: { registrationToken: true },
     });
     if (devices.length === 0) {
       throw new NotFoundException('No active push devices found');
@@ -87,7 +87,7 @@ export class PushService {
 
     const results = await Promise.allSettled(
       devices.map((device) =>
-        this.gateway.sendTestNotification(device.firebaseInstallationId),
+        this.gateway.sendTestNotification(device.registrationToken),
       ),
     );
     const sent = results.filter(
