@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "zhu-server",
-    "description": "Postman collection for the zhu-server NestJS API. The server is mounted under the global /api prefix (see src/main.ts), so all paths below include it via the {{baseUrl}} variable (default: http://localhost:3000/api).\n\nRun the requests in this order to keep collection variables in sync:\n  1. App > Get status\n  2. Auth > Register (populates {{accessToken}} and {{refreshToken}})\n  3. Auth > Login (refreshes the tokens)\n  4. Auth > Me (uses {{accessToken}})\n  5. Auth > Refresh (uses {{refreshToken}})\n  6. Auth > Logout (uses {{accessToken}})",
+    "description": "Postman collection for the zhu-server NestJS API. The server is mounted under the global /api prefix (see src/main.ts), so all paths below include it via the {{baseUrl}} variable (default: http://localhost:3000/api).\n\nRun the requests in this order to keep collection variables in sync:\n  1. App > Get status\n  2. Auth > Register (populates {{accessToken}} and {{refreshToken}})\n  3. Auth > Login (refreshes the tokens)\n  4. Auth > Me (uses {{accessToken}})\n  5. Locations > Update location (uses {{accessToken}})\n  6. Auth > Refresh (uses {{refreshToken}})\n  7. Auth > Logout (uses {{accessToken}})",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -262,6 +262,66 @@
                   "pm.test('Response has sub and email', function () {",
                   "  pm.expect(json).to.have.property('sub');",
                   "  pm.expect(json).to.have.property('email');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Locations",
+      "item": [
+        {
+          "name": "Update location",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"latitude\": -6.2088,\n  \"longitude\": 106.8456\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/locations",
+              "host": ["{{baseUrl}}"],
+              "path": ["locations"]
+            },
+            "description": "POST /api/locations. Requires Authorization: Bearer {{accessToken}} (JwtAuthGuard). Body: UpdateLocationDto { latitude, longitude }. Upserts the user's latest location in UserLocation and appends a history event to UserLocationEvent in a single transaction."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 201', function () {",
+                  "  pm.response.to.have.status(201);",
+                  "});",
+                  "var json = pm.response.json();",
+                  "pm.test('Response contains location and event', function () {",
+                  "  pm.expect(json).to.be.an('object');",
+                  "  pm.expect(json).to.have.property('location');",
+                  "  pm.expect(json).to.have.property('event');",
+                  "  pm.expect(json.location).to.have.property('userId');",
+                  "  pm.expect(json.location).to.have.property('latitude');",
+                  "  pm.expect(json.location).to.have.property('longitude');",
+                  "  pm.expect(json.location).to.have.property('updatedAt');",
+                  "  pm.expect(json.event).to.have.property('id');",
+                  "  pm.expect(json.event).to.have.property('userId');",
+                  "  pm.expect(json.event).to.have.property('latitude');",
+                  "  pm.expect(json.event).to.have.property('longitude');",
+                  "  pm.expect(json.event).to.have.property('detectedAt');",
                   "});"
                 ]
               }
