@@ -146,6 +146,8 @@ export class PushService {
 
   async sendGuardianRiskNotification(
     guardianId: string,
+    guardeeId: string,
+    guardeeIdentity: string,
     riskType: RiskType,
     trigger: GuardianRiskNotificationTrigger,
   ): Promise<{ sent: number; failed: number }> {
@@ -168,6 +170,8 @@ export class PushService {
       devices.map((device) =>
         this.gateway.sendGuardianRiskNotification(
           device.registrationToken,
+          guardeeId,
+          guardeeIdentity,
           riskType,
           trigger,
         ),

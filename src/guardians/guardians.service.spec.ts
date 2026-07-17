@@ -7,6 +7,10 @@ import {
 import {
   GuardianRelationshipInitiatorRole,
   GuardianRelationshipStatus,
+  GuardianRiskNotificationTrigger,
+  LivenessCheckActivationMode,
+  RiskLevel,
+  RiskType,
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { GuardiansService } from './guardians.service';
@@ -116,6 +120,8 @@ describe('GuardiansService', () => {
   });
 
   it('lists only accepted guardians and guardees', async () => {
+    prisma.guardianRelationship.findMany.mockResolvedValue([]);
+
     await service.listGuardians(guardeeId);
     await service.listGuardees(guardianId);
 
@@ -135,7 +141,66 @@ describe('GuardiansService', () => {
           guardianId,
           status: GuardianRelationshipStatus.ACCEPTED,
         },
+        include: {
+          guardee: {
+            select: expect.objectContaining({
+              location: true,
+              risks: expect.any(Object),
+              guardianRiskNotificationsReceived: expect.objectContaining({
+                where: { guardianId },
+                orderBy: { sentAt: 'desc' },
+                take: 1,
+              }),
+            }),
+          },
+        },
       }),
+    );
+  });
+
+  it('returns the latest guardian alert as a needs-help safety status', async () => {
+    const sentAt = new Date('2026-07-17T10:00:00.000Z');
+    prisma.guardianRelationship.findMany.mockResolvedValue([
+      {
+        id: 'relationship-1',
+        guardee: {
+          id: guardeeId,
+          email: 'guardee@example.com',
+          phoneNumber: '+628123456789',
+          location: { latitude: 1, longitude: 2, updatedAt: sentAt },
+          risks: [
+            {
+              riskType: RiskType.ACCIDENT,
+              riskLevel: RiskLevel.HIGH,
+              updatedAt: sentAt,
+              livenessCheckActivationMode: LivenessCheckActivationMode.OFF,
+            },
+          ],
+          guardianRiskNotificationsReceived: [
+            {
+              riskType: RiskType.ACCIDENT,
+              trigger: GuardianRiskNotificationTrigger.FALL_DETECTED,
+              sentAt,
+            },
+          ],
+        },
+      },
+    ]);
+
+    await expect(service.listGuardees(guardianId)).resolves.toEqual([
+      expect.objectContaining({
+        location: { latitude: 1, longitude: 2, updatedAt: sentAt },
+        safetyStatus: 'NEEDS_HELP',
+        riskType: RiskType.ACCIDENT,
+        riskLevel: RiskLevel.HIGH,
+        trigger: GuardianRiskNotificationTrigger.FALL_DETECTED,
+        updatedAt: sentAt,
+      }),
+    ]);
+    const [guardee] = await service.listGuardees(guardianId);
+    expect(guardee.guardee).not.toHaveProperty('risks');
+    expect(guardee.guardee).not.toHaveProperty(
+      'guardianRiskNotificationsReceived',
     );
   });
 
@@ -173,6 +238,57 @@ describe('GuardiansService', () => {
     await expect(
       service.getGuardeeDetail(guardianId, guardeeId),
     ).rejects.toThrow(NotFoundException);
+  });
+
+  it('returns current risk data as an at-risk guardee detail', async () => {
+    const updatedAt = new Date('2026-07-17T11:00:00.000Z');
+    prisma.guardianRelationship.findFirst.mockResolvedValue({
+      guardee: {
+        id: guardeeId,
+        email: 'guardee@example.com',
+        phoneNumber: '+628123456789',
+        location: null,
+        risks: [
+          {
+            riskType: RiskType.DISASTER,
+            riskLevel: RiskLevel.CRITICAL,
+            updatedAt,
+            livenessCheckActivationMode: LivenessCheckActivationMode.AUTO,
+          },
+        ],
+        guardianRiskNotificationsReceived: [],
+      },
+    });
+
+    await expect(
+      service.getGuardeeDetail(guardianId, guardeeId),
+    ).resolves.toEqual(
+      expect.objectContaining({
+        location: null,
+        safetyStatus: 'AT_RISK',
+        riskType: RiskType.DISASTER,
+        riskLevel: RiskLevel.CRITICAL,
+        trigger: null,
+        updatedAt,
+      }),
+    );
+    expect(prisma.guardianRelationship.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        include: {
+          guardee: {
+            select: expect.objectContaining({
+              location: true,
+              risks: expect.any(Object),
+              guardianRiskNotificationsReceived: expect.objectContaining({
+                where: { guardianId },
+                orderBy: { sentAt: 'desc' },
+                take: 1,
+              }),
+            }),
+          },
+        },
+      }),
+    );
   });
 
   it('accepts a pending guardian request', async () => {

@@ -178,10 +178,19 @@ describe('PushService', () => {
     await expect(
       service.sendGuardianRiskNotification(
         'guardian-1',
+        'guardee-1',
+        'guardee@example.com',
         RiskType.DISASTER,
         GuardianRiskNotificationTrigger.NEGATIVE_RESPONSE,
       ),
     ).resolves.toEqual({ sent: 1, failed: 1 });
-    expect(gateway.sendGuardianRiskNotification).toHaveBeenCalledTimes(2);
+    expect(gateway.sendGuardianRiskNotification).toHaveBeenNthCalledWith(
+      1,
+      'token-1',
+      'guardee-1',
+      'guardee@example.com',
+      RiskType.DISASTER,
+      GuardianRiskNotificationTrigger.NEGATIVE_RESPONSE,
+    );
   });
 });

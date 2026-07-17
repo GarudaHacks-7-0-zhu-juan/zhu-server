@@ -115,10 +115,13 @@ export class GuardianNotificationService {
   ): Promise<void> {
     const guardians = await this.prisma.guardianRelationship.findMany({
       where: { guardeeId, status: GuardianRelationshipStatus.ACCEPTED },
-      select: { guardianId: true },
+      select: {
+        guardianId: true,
+        guardee: { select: { email: true, phoneNumber: true } },
+      },
     });
 
-    for (const { guardianId } of guardians) {
+    for (const { guardianId, guardee } of guardians) {
       if (
         await this.wasRecentlyNotified(
           guardianId,
@@ -133,6 +136,8 @@ export class GuardianNotificationService {
 
       const result = await this.push.sendGuardianRiskNotification(
         guardianId,
+        guardeeId,
+        guardee.email || guardee.phoneNumber,
         riskType,
         trigger,
       );

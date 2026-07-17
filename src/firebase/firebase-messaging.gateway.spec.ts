@@ -99,6 +99,8 @@ describe('FirebaseMessagingGateway', () => {
 
     await gateway.sendGuardianRiskNotification(
       'registration-token',
+      'guardee-1',
+      'guardee@example.com',
       'DISASTER',
       'NEGATIVE_RESPONSE',
     );
@@ -107,11 +109,12 @@ describe('FirebaseMessagingGateway', () => {
       token: 'registration-token',
       notification: {
         title: 'Guardee safety alert',
-        body: 'A guardee may need your attention.',
+        body: 'guardee@example.com may need your attention.',
       },
       data: {
         eventType: 'GUARDIAN_RISK_ALERT',
         route: '/guardees',
+        guardeeId: 'guardee-1',
         riskType: 'DISASTER',
         trigger: 'NEGATIVE_RESPONSE',
       },
@@ -127,6 +130,8 @@ describe('FirebaseMessagingGateway', () => {
 
     await gateway.sendGuardianRiskNotification(
       'registration-token',
+      'guardee-1',
+      '+628123456789',
       'ACCIDENT',
       'FALL_DETECTED',
     );
@@ -135,11 +140,12 @@ describe('FirebaseMessagingGateway', () => {
       token: 'registration-token',
       notification: {
         title: 'Fall detected',
-        body: 'Your guardee may need assistance after a fall.',
+        body: '+628123456789 may need assistance after a fall.',
       },
       data: {
         eventType: 'GUARDIAN_RISK_ALERT',
         route: '/guardees',
+        guardeeId: 'guardee-1',
         riskType: 'ACCIDENT',
         trigger: 'FALL_DETECTED',
       },
