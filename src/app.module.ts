@@ -18,6 +18,7 @@ import { UserRisksModule } from './user-risks/user-risks.module';
 import { QueueModule } from './queue/queue.module';
 import { RedisModule } from './redis/redis.module';
 import { GuardiansModule } from './guardians/guardians.module';
+import { LocationConsumerModule } from './location-consumer/location-consumer.module';
 
 @Module({
   imports: [
@@ -38,6 +39,7 @@ import { GuardiansModule } from './guardians/guardians.module';
     BmkgModule,
     EarthquakeModule,
     AccidentsModule,
+    LocationConsumerModule,
   ],
   controllers: [AppController],
   providers: [AppService],

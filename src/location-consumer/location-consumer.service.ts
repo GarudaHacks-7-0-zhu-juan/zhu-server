@@ -37,12 +37,27 @@ export class LocationConsumerService implements OnModuleInit, OnModuleDestroy {
           return;
         }
 
-        const { latitude, longitude, detectedAt } = event.payload;
-        await this.userRisks.evaluateRisk(
+        const { latitude, longitude, detectedAt, locationEventId } = event.payload;
+        if (
+          !Number.isFinite(latitude) || latitude < -90 || latitude > 90 ||
+          !Number.isFinite(longitude) || longitude < -180 || longitude > 180 ||
+          !locationEventId || !Number.isInteger(event.sequence) || event.sequence < 1
+        ) {
+          throw new Error('Location event payload is invalid.');
+        }
+        const detectedDate = new Date(detectedAt);
+        if (Number.isNaN(detectedDate.getTime())) {
+          throw new Error('Location event detectedAt is invalid.');
+        }
+        await this.userRisks.evaluateLocationRisk(
           event.userId,
           latitude,
           longitude,
-          new Date(detectedAt),
+          detectedDate,
+          groupId,
+          event.eventId,
+          event.sequence,
+          locationEventId,
         );
       },
     );

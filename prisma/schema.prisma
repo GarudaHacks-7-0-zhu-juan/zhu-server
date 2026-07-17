@@ -163,15 +163,21 @@ model UserRisk {
 }
 
 model UserRiskEvent {
-  id         String    @id @default(uuid())
-  userId     String
-  riskType   RiskType
-  riskLevel  RiskLevel
-  detectedAt DateTime
-  isOkay     Boolean?
-  user       User      @relation(fields: [userId], references: [id])
+  id                String    @id @default(uuid())
+  userId            String
+  riskType          RiskType
+  riskLevel         RiskLevel
+  detectedAt        DateTime
+  isOkay            Boolean?
+  locationEventId   String?
+  district          String?
+  riskScore         Decimal?  @db.Decimal(5, 4)
+  riskPolicyVersion String?
+  outsideCoverage   Boolean?
+  user              User      @relation(fields: [userId], references: [id])
 
   @@index([userId, riskType, detectedAt])
+  @@unique([locationEventId, riskType])
 }
 
 model UserRiskNotification {
