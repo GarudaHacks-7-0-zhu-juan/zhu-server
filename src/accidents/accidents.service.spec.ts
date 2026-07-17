@@ -1,6 +1,14 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { AccidentEventType, UserAccidentEvent } from '@prisma/client';
+import {
+  AccidentEventType,
+  RiskLevel,
+  RiskType,
+  UserAccidentEvent,
+} from '@prisma/client';
+import { GuardianNotificationService } from '../guardian-notification/guardian-notification.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { PushService } from '../push/push.service';
+import { UserRisksService } from '../user-risks/user-risks.service';
 import { AccidentsService } from './accidents.service';
 
 describe('AccidentsService', () => {
@@ -12,12 +20,21 @@ describe('AccidentsService', () => {
       create: jest.fn(),
     },
   };
+  const mockUserRisks = { setAccidentRisk: jest.fn() };
+  const mockPush = { sendLivenessCheck: jest.fn() };
+  const mockGuardianNotifications = { dispatchFallDetected: jest.fn() };
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AccidentsService,
         { provide: PrismaService, useValue: mockPrisma },
+        { provide: UserRisksService, useValue: mockUserRisks },
+        { provide: PushService, useValue: mockPush },
+        {
+          provide: GuardianNotificationService,
+          useValue: mockGuardianNotifications,
+        },
       ],
     }).compile();
 
@@ -49,6 +66,19 @@ describe('AccidentsService', () => {
         detectedAt,
       },
     });
+    expect(mockUserRisks.setAccidentRisk).toHaveBeenCalledWith(
+      'user-1',
+      RiskLevel.CRITICAL,
+      detectedAt,
+    );
+    expect(mockPush.sendLivenessCheck).toHaveBeenCalledWith(
+      'user-1',
+      RiskType.ACCIDENT,
+    );
+    expect(mockGuardianNotifications.dispatchFallDetected).toHaveBeenCalledWith(
+      'user-1',
+      'event-1',
+    );
     expect(result).toBe(mockEvent);
   });
 

@@ -51,8 +51,8 @@ describe('FirebaseMessagingGateway', () => {
       data: {
         eventType: 'LIVENESS_CHECK',
         riskType: 'HIGH_RISK_AREA',
-        title: 'Are you safe?',
-        body: 'Confirm that you are safe.',
+        title: 'High-risk area check-in',
+        body: "You're in an area with elevated risk. Are you safe?",
       },
       android: { priority: 'high' },
     });
@@ -68,12 +68,29 @@ describe('FirebaseMessagingGateway', () => {
       data: {
         eventType: 'LIVENESS_CHECK',
         riskType: 'DISASTER',
-        title: 'Are you safe?',
-        body: 'Confirm that you are safe.',
+        title: 'Disaster safety check',
+        body: "A disaster may be affecting your area. Confirm that you're safe.",
       },
       android: {
         priority: 'high',
       },
+    });
+  });
+
+  it('maps a fall check to a data-only high-priority message', async () => {
+    messaging.send.mockResolvedValue('message-id');
+
+    await gateway.sendLivenessCheck('registration-token', 'ACCIDENT');
+
+    expect(messaging.send).toHaveBeenCalledWith({
+      token: 'registration-token',
+      data: {
+        eventType: 'LIVENESS_CHECK',
+        riskType: 'ACCIDENT',
+        title: 'Fall detected',
+        body: 'We detected a fall. Are you safe?',
+      },
+      android: { priority: 'high' },
     });
   });
 
@@ -97,6 +114,34 @@ describe('FirebaseMessagingGateway', () => {
         route: '/guardees',
         riskType: 'DISASTER',
         trigger: 'NEGATIVE_RESPONSE',
+      },
+      android: {
+        priority: 'high',
+        notification: { channelId: 'high_importance_channel' },
+      },
+    });
+  });
+
+  it('maps a fall alert for guardians', async () => {
+    messaging.send.mockResolvedValue('message-id');
+
+    await gateway.sendGuardianRiskNotification(
+      'registration-token',
+      'ACCIDENT',
+      'FALL_DETECTED',
+    );
+
+    expect(messaging.send).toHaveBeenCalledWith({
+      token: 'registration-token',
+      notification: {
+        title: 'Fall detected',
+        body: 'Your guardee may need assistance after a fall.',
+      },
+      data: {
+        eventType: 'GUARDIAN_RISK_ALERT',
+        route: '/guardees',
+        riskType: 'ACCIDENT',
+        trigger: 'FALL_DETECTED',
       },
       android: {
         priority: 'high',

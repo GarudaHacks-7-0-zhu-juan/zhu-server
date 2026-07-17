@@ -203,6 +203,7 @@ export class UserRisksService {
     riskType: RiskType,
     isOkay: boolean,
   ): Promise<{ risk: UserRisk; event: UserRiskEvent }> {
+    this.assertRespondableRiskType(riskType);
     const respondedAt = new Date();
     const existingRisk = await this.prisma.userRisk.findUnique({
       where: { userId_riskType: { userId, riskType } },
@@ -210,7 +211,6 @@ export class UserRisksService {
     const riskLevel = isOkay
       ? RiskLevel.NONE
       : (existingRisk?.riskLevel ?? RiskLevel.NONE);
-    this.assertProtectMeRiskType(riskType);
     const activationMode =
       existingRisk?.livenessCheckActivationMode ??
       LivenessCheckActivationMode.OFF;
@@ -293,5 +293,10 @@ export class UserRisksService {
     ) {
       throw new BadRequestException('Risk type does not support Protect Me.');
     }
+  }
+
+  private assertRespondableRiskType(riskType: RiskType): void {
+    if (riskType === RiskType.ACCIDENT) return;
+    this.assertProtectMeRiskType(riskType);
   }
 }
