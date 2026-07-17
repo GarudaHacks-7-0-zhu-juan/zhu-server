@@ -20,7 +20,7 @@ describe('LocationConsumerService', () => {
   };
 
   const mockUserRisks = {
-    evaluateRisk: jest.fn().mockResolvedValue({}),
+    evaluateLocationRisk: jest.fn().mockResolvedValue({}),
   };
 
   const mockConfig = {
@@ -106,7 +106,7 @@ describe('LocationConsumerService', () => {
     it('evaluates risk for location updated events', async () => {
       const handler = await getHandler();
       const detectedAt = '2026-07-16T12:00:00.000Z';
-      const evaluateRiskSpy = jest.spyOn(userRisks, 'evaluateRisk');
+      const evaluateRiskSpy = jest.spyOn(userRisks, 'evaluateLocationRisk');
 
       const event: UserEvent = {
         eventId: 'e-1',
@@ -129,12 +129,16 @@ describe('LocationConsumerService', () => {
         1,
         2,
         new Date(detectedAt),
+        DEFAULT_LOCATION_CONSUMER_GROUP,
+        'e-1',
+        1,
+        'le-1',
       );
     });
 
     it('ignores non-location events', async () => {
       const handler = await getHandler();
-      const evaluateRiskSpy = jest.spyOn(userRisks, 'evaluateRisk');
+      const evaluateRiskSpy = jest.spyOn(userRisks, 'evaluateLocationRisk');
 
       const event: UserEvent = {
         eventId: 'e-2',

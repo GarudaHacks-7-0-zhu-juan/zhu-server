@@ -6,6 +6,7 @@ import {
   RiskType,
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { RiskGeoService } from '../risk-geo/risk-geo.service';
 import { UserRisksService } from './user-risks.service';
 
 describe('UserRisksService', () => {
@@ -13,13 +14,25 @@ describe('UserRisksService', () => {
   let prisma: typeof mockPrisma;
 
   const mockPrisma = {
-    $transaction: jest.fn((ops: Promise<unknown>[]) => Promise.all(ops)),
+    $transaction: jest.fn((value: ((tx: typeof mockPrisma) => Promise<unknown>) | Promise<unknown>[]) =>
+      typeof value === 'function' ? value(mockPrisma) : Promise.all(value),
+    ),
     userRisk: {
       upsert: jest.fn(),
       findMany: jest.fn(),
       findUnique: jest.fn(),
     },
     userRiskEvent: { create: jest.fn() },
+    processedUserEvent: { findUnique: jest.fn(), upsert: jest.fn() },
+  };
+  const mockRiskGeo = {
+    evaluate: jest.fn(({ } = {} as never) => ({
+      riskLevel: RiskLevel.HIGH,
+      district: 'KEMAYORAN',
+      riskScore: 0.9,
+      riskPolicyVersion: 'jakarta-kecamatan-v2',
+      outsideCoverage: false,
+    })),
   };
 
   beforeEach(async () => {
@@ -27,6 +40,7 @@ describe('UserRisksService', () => {
       providers: [
         UserRisksService,
         { provide: PrismaService, useValue: mockPrisma },
+        { provide: RiskGeoService, useValue: mockRiskGeo },
       ],
     }).compile();
 
@@ -37,15 +51,14 @@ describe('UserRisksService', () => {
     jest.clearAllMocks();
     prisma.userRisk.upsert.mockResolvedValue({});
     prisma.userRiskEvent.create.mockResolvedValue({});
+    prisma.processedUserEvent.findUnique.mockResolvedValue(null);
   });
 
   afterEach(() => jest.useRealTimers());
 
   it('auto-enables High-risk area protection on a safe-to-high transition', async () => {
     prisma.userRisk.findUnique.mockResolvedValue(null);
-    jest.spyOn(Math, 'random').mockReturnValue(0);
-
-    await service.evaluateRisk('user-1', -1.23, -4.56, new Date());
+    await service.evaluateLocationRisk('user-1', -1.23, -4.56, new Date(), 'group', 'event', 1, 'location');
 
     expect(prisma.userRisk.upsert.mock.calls[0][0].create).toMatchObject({
       riskLevel: RiskLevel.HIGH,
@@ -60,9 +73,7 @@ describe('UserRisksService', () => {
       riskLevel: RiskLevel.HIGH,
       livenessCheckActivationMode: LivenessCheckActivationMode.OFF,
     });
-    jest.spyOn(Math, 'random').mockReturnValue(0);
-
-    await service.evaluateRisk('user-1', -1.23, -4.56, new Date());
+    await service.evaluateLocationRisk('user-1', -1.23, -4.56, new Date(), 'group', 'event', 1, 'location');
 
     expect(prisma.userRisk.upsert.mock.calls[0][0].update).toMatchObject({
       livenessCheckActivationMode: LivenessCheckActivationMode.OFF,
@@ -76,9 +87,8 @@ describe('UserRisksService', () => {
       riskLevel: RiskLevel.CRITICAL,
       livenessCheckActivationMode: LivenessCheckActivationMode.AUTO,
     });
-    jest.spyOn(Math, 'random').mockReturnValue(0);
-
-    await service.evaluateRisk('user-1', 1.23, 4.56, new Date());
+    mockRiskGeo.evaluate.mockReturnValueOnce({ riskLevel: RiskLevel.LOW, district: null, riskScore: null, riskPolicyVersion: null, outsideCoverage: true });
+    await service.evaluateLocationRisk('user-1', 1.23, 4.56, new Date(), 'group', 'event', 1, 'location');
 
     expect(prisma.userRisk.upsert.mock.calls[0][0].update).toMatchObject({
       riskLevel: RiskLevel.LOW,
@@ -93,9 +103,8 @@ describe('UserRisksService', () => {
       riskLevel: RiskLevel.HIGH,
       livenessCheckActivationMode: LivenessCheckActivationMode.MANUAL,
     });
-    jest.spyOn(Math, 'random').mockReturnValue(0);
-
-    await service.evaluateRisk('user-1', 1.23, 4.56, new Date());
+    mockRiskGeo.evaluate.mockReturnValueOnce({ riskLevel: RiskLevel.LOW, district: null, riskScore: null, riskPolicyVersion: null, outsideCoverage: true });
+    await service.evaluateLocationRisk('user-1', 1.23, 4.56, new Date(), 'group', 'event', 1, 'location');
 
     expect(prisma.userRisk.upsert.mock.calls[0][0].update).toMatchObject({
       livenessCheckActivationMode: LivenessCheckActivationMode.MANUAL,

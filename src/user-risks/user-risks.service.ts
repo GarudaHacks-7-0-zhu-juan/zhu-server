@@ -7,6 +7,7 @@ import {
   UserRiskEvent,
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { RiskGeoService } from '../risk-geo/risk-geo.service';
 
 export const protectMeRiskTypes = [
   RiskType.HIGH_RISK_AREA,
@@ -15,24 +16,35 @@ export const protectMeRiskTypes = [
 
 @Injectable()
 export class UserRisksService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly riskGeo: RiskGeoService,
+  ) {}
 
-  async evaluateRisk(
+  async evaluateLocationRisk(
     userId: string,
     latitude: number,
     longitude: number,
     detectedAt: Date,
-  ): Promise<{ risk: UserRisk; event: UserRiskEvent }> {
-    const riskLevel = this.evaluateRiskLevel(latitude, longitude);
-    const existingRisk = await this.prisma.userRisk.findUnique({
+    consumerGroup: string,
+    eventId: string,
+    sequence: number,
+    locationEventId: string,
+  ): Promise<{ risk: UserRisk; event: UserRiskEvent } | null> {
+    return this.prisma.$transaction(async (tx) => {
+      const processed = await tx.processedUserEvent.findUnique({
+        where: { consumerGroup_userId: { consumerGroup, userId } },
+      });
+      if (processed && processed.sequence >= sequence) return null;
+      const assessment = this.riskGeo.evaluate(latitude, longitude);
+      const existingRisk = await tx.userRisk.findUnique({
       where: {
         userId_riskType: { userId, riskType: RiskType.HIGH_RISK_AREA },
       },
-    });
-    const activationMode = this.locationActivationMode(existingRisk, riskLevel);
+      });
+      const activationMode = this.locationActivationMode(existingRisk, assessment.riskLevel);
 
-    const [risk, event] = await this.prisma.$transaction([
-      this.prisma.userRisk.upsert({
+      const risk = await tx.userRisk.upsert({
         where: {
           userId_riskType: {
             userId,
@@ -42,27 +54,37 @@ export class UserRisksService {
         create: {
           userId,
           riskType: RiskType.HIGH_RISK_AREA,
-          riskLevel,
+          riskLevel: assessment.riskLevel,
           livenessCheckActivationMode: activationMode,
           updatedAt: detectedAt,
         },
         update: {
-          riskLevel,
+          riskLevel: assessment.riskLevel,
           livenessCheckActivationMode: activationMode,
           updatedAt: detectedAt,
         },
-      }),
-      this.prisma.userRiskEvent.create({
+      });
+      const event = await tx.userRiskEvent.create({
         data: {
           userId,
           riskType: RiskType.HIGH_RISK_AREA,
-          riskLevel,
+          riskLevel: assessment.riskLevel,
           detectedAt,
+          locationEventId,
+          district: assessment.district,
+          riskScore: assessment.riskScore,
+          riskPolicyVersion: assessment.riskPolicyVersion,
+          outsideCoverage: assessment.outsideCoverage,
         },
-      }),
-    ]);
+      });
+      await tx.processedUserEvent.upsert({
+        where: { consumerGroup_userId: { consumerGroup, userId } },
+        create: { consumerGroup, userId, sequence, eventId },
+        update: { sequence, eventId, processedAt: new Date() },
+      });
 
-    return { risk, event };
+      return { risk, event };
+    });
   }
 
   async setLivenessCheckEnabled(
@@ -248,16 +270,6 @@ export class UserRisksService {
     ]);
 
     return { risk, event };
-  }
-
-  private evaluateRiskLevel(latitude: number, longitude: number): RiskLevel {
-    const isNegativeQuadrant = latitude < 0 && longitude < 0;
-
-    if (isNegativeQuadrant) {
-      return Math.random() < 0.5 ? RiskLevel.HIGH : RiskLevel.CRITICAL;
-    }
-
-    return Math.random() < 0.5 ? RiskLevel.LOW : RiskLevel.NONE;
   }
 
   private isHighOrCritical(riskLevel: RiskLevel): boolean {
