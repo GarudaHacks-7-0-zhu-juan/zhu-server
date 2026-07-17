@@ -1,15 +1,19 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { UserRisksService } from '../user-risks/user-risks.service';
 import { UpdateLocationDto } from './dto/update-location.dto';
 
 @Injectable()
 export class LocationsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly userRisks: UserRisksService,
+  ) {}
 
   async updateLocation(userId: string, dto: UpdateLocationDto) {
     const timestamp = new Date();
 
-    return this.prisma.$transaction(async (tx) => {
+    const { location, event } = await this.prisma.$transaction(async (tx) => {
       const location = await tx.userLocation.upsert({
         where: { userId },
         create: {
@@ -57,5 +61,13 @@ export class LocationsService {
 
       return { location, event };
     });
+    const { risk } = await this.userRisks.evaluateRisk(
+      userId,
+      dto.latitude,
+      dto.longitude,
+      timestamp,
+    );
+
+    return { location, event, risk };
   }
 }

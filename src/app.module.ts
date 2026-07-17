@@ -8,7 +8,6 @@ import { BmkgModule } from './bmkg/bmkg.module';
 import { EarthquakeModule } from './earthquake/earthquake.module';
 import { GuardianNotificationModule } from './guardian-notification/guardian-notification.module';
 import { KafkaModule } from './kafka/kafka.module';
-import { LocationConsumerModule } from './location-consumer/location-consumer.module';
 import { LivenessCheckModule } from './liveness-check/liveness-check.module';
 import { LoggingModule } from './logging/logging.module';
 import { LocationsModule } from './locations/locations.module';
@@ -29,7 +28,6 @@ import { GuardiansModule } from './guardians/guardians.module';
     QueueModule,
     KafkaModule,
     OutboxModule,
-    LocationConsumerModule,
     AuthModule,
     LocationsModule,
     UserRisksModule,

@@ -21,6 +21,12 @@ enum RiskType {
   HIGH_RISK_AREA
 }
 
+enum LivenessCheckActivationMode {
+  OFF
+  MANUAL
+  AUTO
+}
+
 enum AccidentEventType {
   FALL_DETECTED
   MOVEMENT
@@ -144,12 +150,12 @@ model UserLocationEvent {
 }
 
 model UserRisk {
-  userId               String
-  riskType             RiskType
-  riskLevel            RiskLevel
-  updatedAt            DateTime
-  livenessCheckEnabled Boolean  @default(true)
-  user                 User     @relation(fields: [userId], references: [id])
+  userId                    String
+  riskType                  RiskType
+  riskLevel                 RiskLevel
+  updatedAt                 DateTime
+  livenessCheckActivationMode LivenessCheckActivationMode @default(OFF)
+  user                      User     @relation(fields: [userId], references: [id])
 
   @@id([userId, riskType])
 }

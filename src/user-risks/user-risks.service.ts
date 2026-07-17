@@ -1,6 +1,17 @@
-import { Injectable } from '@nestjs/common';
-import { RiskLevel, RiskType, UserRisk, UserRiskEvent } from '@prisma/client';
+import { BadRequestException, Injectable } from '@nestjs/common';
+import {
+  LivenessCheckActivationMode,
+  RiskLevel,
+  RiskType,
+  UserRisk,
+  UserRiskEvent,
+} from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+
+export const protectMeRiskTypes = [
+  RiskType.HIGH_RISK_AREA,
+  RiskType.DISASTER,
+] as const;
 
 @Injectable()
 export class UserRisksService {
@@ -13,7 +24,12 @@ export class UserRisksService {
     detectedAt: Date,
   ): Promise<{ risk: UserRisk; event: UserRiskEvent }> {
     const riskLevel = this.evaluateRiskLevel(latitude, longitude);
-    const livenessCheckEnabled = this.isHighOrCritical(riskLevel);
+    const existingRisk = await this.prisma.userRisk.findUnique({
+      where: {
+        userId_riskType: { userId, riskType: RiskType.HIGH_RISK_AREA },
+      },
+    });
+    const activationMode = this.locationActivationMode(existingRisk, riskLevel);
 
     const [risk, event] = await this.prisma.$transaction([
       this.prisma.userRisk.upsert({
@@ -27,12 +43,12 @@ export class UserRisksService {
           userId,
           riskType: RiskType.HIGH_RISK_AREA,
           riskLevel,
-          livenessCheckEnabled,
+          livenessCheckActivationMode: activationMode,
           updatedAt: detectedAt,
         },
         update: {
           riskLevel,
-          livenessCheckEnabled,
+          livenessCheckActivationMode: activationMode,
           updatedAt: detectedAt,
         },
       }),
@@ -54,6 +70,7 @@ export class UserRisksService {
     riskType: RiskType,
     enabled: boolean,
   ): Promise<UserRisk> {
+    this.assertProtectMeRiskType(riskType);
     return this.prisma.userRisk.upsert({
       where: {
         userId_riskType: {
@@ -65,30 +82,42 @@ export class UserRisksService {
         userId,
         riskType,
         riskLevel: RiskLevel.NONE,
-        livenessCheckEnabled: enabled,
+        livenessCheckActivationMode: enabled
+          ? LivenessCheckActivationMode.MANUAL
+          : LivenessCheckActivationMode.OFF,
         updatedAt: new Date(),
       },
       update: {
-        livenessCheckEnabled: enabled,
+        livenessCheckActivationMode: enabled
+          ? LivenessCheckActivationMode.MANUAL
+          : LivenessCheckActivationMode.OFF,
       },
     });
   }
 
-  async getLivenessCheckStatuses(userId: string): Promise<
-    {
-      riskType: RiskType;
-      livenessCheckEnabled: boolean;
-    }[]
+  async getLivenessCheckStatuses(
+    userId: string,
+  ): Promise<
+    Pick<UserRisk, 'riskType' | 'riskLevel' | 'livenessCheckActivationMode'>[]
   > {
     const risks = await this.prisma.userRisk.findMany({
       where: { userId },
       select: {
         riskType: true,
-        livenessCheckEnabled: true,
+        riskLevel: true,
+        livenessCheckActivationMode: true,
       },
     });
 
-    return risks;
+    const byRiskType = new Map(risks.map((risk) => [risk.riskType, risk]));
+    return protectMeRiskTypes.map(
+      (riskType) =>
+        byRiskType.get(riskType) ?? {
+          riskType,
+          riskLevel: RiskLevel.NONE,
+          livenessCheckActivationMode: LivenessCheckActivationMode.OFF,
+        },
+    );
   }
 
   async setDisasterRisk(
@@ -96,8 +125,6 @@ export class UserRisksService {
     riskLevel: RiskLevel,
     detectedAt: Date,
   ): Promise<{ risk: UserRisk; event: UserRiskEvent }> {
-    const livenessCheckEnabled = this.isHighOrCritical(riskLevel);
-
     const [risk, event] = await this.prisma.$transaction([
       this.prisma.userRisk.upsert({
         where: {
@@ -110,12 +137,12 @@ export class UserRisksService {
           userId,
           riskType: RiskType.DISASTER,
           riskLevel,
-          livenessCheckEnabled,
+          livenessCheckActivationMode: LivenessCheckActivationMode.AUTO,
           updatedAt: detectedAt,
         },
         update: {
           riskLevel,
-          livenessCheckEnabled,
+          livenessCheckActivationMode: LivenessCheckActivationMode.AUTO,
           updatedAt: detectedAt,
         },
       }),
@@ -137,8 +164,6 @@ export class UserRisksService {
     riskLevel: RiskLevel,
     detectedAt: Date,
   ): Promise<{ risk: UserRisk; event: UserRiskEvent }> {
-    const livenessCheckEnabled = this.isHighOrCritical(riskLevel);
-
     const [risk, event] = await this.prisma.$transaction([
       this.prisma.userRisk.upsert({
         where: {
@@ -151,12 +176,12 @@ export class UserRisksService {
           userId,
           riskType: RiskType.ACCIDENT,
           riskLevel,
-          livenessCheckEnabled,
+          livenessCheckActivationMode: LivenessCheckActivationMode.OFF,
           updatedAt: detectedAt,
         },
         update: {
           riskLevel,
-          livenessCheckEnabled,
+          livenessCheckActivationMode: LivenessCheckActivationMode.OFF,
           updatedAt: detectedAt,
         },
       }),
@@ -185,9 +210,10 @@ export class UserRisksService {
     const riskLevel = isOkay
       ? RiskLevel.NONE
       : (existingRisk?.riskLevel ?? RiskLevel.NONE);
-    const livenessCheckEnabled = isOkay
-      ? false
-      : (existingRisk?.livenessCheckEnabled ?? false);
+    this.assertProtectMeRiskType(riskType);
+    const activationMode =
+      existingRisk?.livenessCheckActivationMode ??
+      LivenessCheckActivationMode.OFF;
 
     const [risk, event] = await this.prisma.$transaction([
       this.prisma.userRisk.upsert({
@@ -201,12 +227,12 @@ export class UserRisksService {
           userId,
           riskType,
           riskLevel,
-          livenessCheckEnabled,
+          livenessCheckActivationMode: activationMode,
           updatedAt: respondedAt,
         },
         update: {
           riskLevel,
-          livenessCheckEnabled,
+          livenessCheckActivationMode: activationMode,
           updatedAt: respondedAt,
         },
       }),
@@ -236,5 +262,36 @@ export class UserRisksService {
 
   private isHighOrCritical(riskLevel: RiskLevel): boolean {
     return riskLevel === RiskLevel.HIGH || riskLevel === RiskLevel.CRITICAL;
+  }
+
+  private locationActivationMode(
+    existingRisk: UserRisk | null,
+    riskLevel: RiskLevel,
+  ): LivenessCheckActivationMode {
+    const wasHighRisk = this.isHighOrCritical(
+      existingRisk?.riskLevel ?? RiskLevel.NONE,
+    );
+    const isHighRisk = this.isHighOrCritical(riskLevel);
+    const existingMode =
+      existingRisk?.livenessCheckActivationMode ??
+      LivenessCheckActivationMode.OFF;
+
+    if (isHighRisk && !wasHighRisk) {
+      return LivenessCheckActivationMode.AUTO;
+    }
+    if (!isHighRisk && existingMode === LivenessCheckActivationMode.AUTO) {
+      return LivenessCheckActivationMode.OFF;
+    }
+    return existingMode;
+  }
+
+  private assertProtectMeRiskType(riskType: RiskType): void {
+    if (
+      !protectMeRiskTypes.includes(
+        riskType as (typeof protectMeRiskTypes)[number],
+      )
+    ) {
+      throw new BadRequestException('Risk type does not support Protect Me.');
+    }
   }
 }
