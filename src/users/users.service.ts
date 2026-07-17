@@ -25,6 +25,20 @@ export class UsersService {
     return this.prisma.user.findUnique({ where: { id } });
   }
 
+  findProfileById(id: string) {
+    return this.prisma.user.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        displayName: true,
+        email: true,
+        phoneNumber: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+  }
+
   updateRefreshToken(
     id: string,
     refreshTokenHash: string | null,
