@@ -84,19 +84,13 @@ export class FirebaseMessagingGateway {
   ): Promise<void> {
     await this.send({
       token: registrationToken,
-      notification: {
-        title: 'Are you safe?',
-        body: 'Confirm that you are safe.',
-      },
       data: {
         eventType: 'LIVENESS_CHECK',
         riskType,
-        route: '/liveness-check',
+        title: 'Are you safe?',
+        body: 'Confirm that you are safe.',
       },
-      android: {
-        priority: 'high',
-        notification: { channelId: 'high_importance_channel' },
-      },
+      android: { priority: 'high' },
     });
   }
 

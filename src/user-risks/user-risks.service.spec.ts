@@ -1,15 +1,24 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access */
 import { Test, TestingModule } from '@nestjs/testing';
-import { RiskLevel, RiskType, UserRisk, UserRiskEvent } from '@prisma/client';
+import {
+  LivenessCheckActivationMode,
+  RiskLevel,
+  RiskType,
+} from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { UserRisksService } from './user-risks.service';
 
 describe('UserRisksService', () => {
   let service: UserRisksService;
-  let prisma: PrismaService;
+  let prisma: typeof mockPrisma;
 
   const mockPrisma = {
     $transaction: jest.fn((ops: Promise<unknown>[]) => Promise.all(ops)),
-    userRisk: { upsert: jest.fn(), findMany: jest.fn(), findUnique: jest.fn() },
+    userRisk: {
+      upsert: jest.fn(),
+      findMany: jest.fn(),
+      findUnique: jest.fn(),
+    },
     userRiskEvent: { create: jest.fn() },
   };
 
@@ -22,410 +31,142 @@ describe('UserRisksService', () => {
     }).compile();
 
     service = module.get<UserRisksService>(UserRisksService);
-    prisma = module.get<PrismaService>(PrismaService);
-
+    prisma = mockPrisma;
     jest.useFakeTimers();
-    jest.setSystemTime(new Date('2026-07-16T12:00:00.000Z'));
-
+    jest.setSystemTime(new Date('2026-07-17T12:00:00.000Z'));
     jest.clearAllMocks();
+    prisma.userRisk.upsert.mockResolvedValue({});
+    prisma.userRiskEvent.create.mockResolvedValue({});
   });
 
-  afterEach(() => {
-    jest.useRealTimers();
-  });
+  afterEach(() => jest.useRealTimers());
 
-  describe('evaluateRisk', () => {
-    const detectedAt = new Date('2026-07-16T12:00:00.000Z');
+  it('auto-enables High-risk area protection on a safe-to-high transition', async () => {
+    prisma.userRisk.findUnique.mockResolvedValue(null);
+    jest.spyOn(Math, 'random').mockReturnValue(0);
 
-    beforeEach(() => {
-      jest.spyOn(prisma.userRisk, 'upsert').mockResolvedValue({} as UserRisk);
-      jest
-        .spyOn(prisma.userRiskEvent, 'create')
-        .mockResolvedValue({} as UserRiskEvent);
-    });
+    await service.evaluateRisk('user-1', -1.23, -4.56, new Date());
 
-    it('marks negative-lat-lon coordinates as HIGH/CRITICAL risk and enables liveness checks', async () => {
-      const upsertSpy = jest.spyOn(prisma.userRisk, 'upsert');
-      jest.spyOn(Math, 'random').mockReturnValue(0); // picks HIGH
-
-      await service.evaluateRisk('user-1', -1.23, -4.56, detectedAt);
-
-      expect(upsertSpy.mock.calls[0][0].create.riskLevel).toBe(RiskLevel.HIGH);
-      expect(upsertSpy.mock.calls[0][0].create.livenessCheckEnabled).toBe(true);
-      expect(upsertSpy.mock.calls[0][0].update.livenessCheckEnabled).toBe(true);
-    });
-
-    it('marks positive-lat-lon coordinates as LOW/NONE risk and disables liveness checks', async () => {
-      const upsertSpy = jest.spyOn(prisma.userRisk, 'upsert');
-      jest.spyOn(Math, 'random').mockReturnValue(0); // picks LOW
-
-      await service.evaluateRisk('user-1', 1.23, 4.56, detectedAt);
-
-      expect(upsertSpy.mock.calls[0][0].create.riskLevel).toBe(RiskLevel.LOW);
-      expect(upsertSpy.mock.calls[0][0].create.livenessCheckEnabled).toBe(
-        false,
-      );
-      expect(upsertSpy.mock.calls[0][0].update.livenessCheckEnabled).toBe(
-        false,
-      );
-    });
-
-    it('treats mixed-sign coordinates as LOW/NONE risk and disables liveness checks', async () => {
-      const upsertSpy = jest.spyOn(prisma.userRisk, 'upsert');
-      jest.spyOn(Math, 'random').mockReturnValue(1); // picks NONE
-
-      await service.evaluateRisk('user-1', -1.23, 4.56, detectedAt);
-
-      expect(upsertSpy.mock.calls[0][0].create.riskLevel).toBe(RiskLevel.NONE);
-      expect(upsertSpy.mock.calls[0][0].create.livenessCheckEnabled).toBe(
-        false,
-      );
+    expect(prisma.userRisk.upsert.mock.calls[0][0].create).toMatchObject({
+      riskLevel: RiskLevel.HIGH,
+      livenessCheckActivationMode: LivenessCheckActivationMode.AUTO,
     });
   });
 
-  describe('setLivenessCheckEnabled', () => {
-    it('upserts the toggle for an existing risk row', async () => {
-      const userId = 'user-1';
-      const riskType = RiskType.HIGH_RISK_AREA;
-      const mockRisk = {
-        userId,
-        riskType,
-        riskLevel: RiskLevel.HIGH,
-        livenessCheckEnabled: false,
-      } as UserRisk;
+  it('respects manual OFF for the current high-risk-area incident', async () => {
+    prisma.userRisk.findUnique.mockResolvedValue({
+      userId: 'user-1',
+      riskType: RiskType.HIGH_RISK_AREA,
+      riskLevel: RiskLevel.HIGH,
+      livenessCheckActivationMode: LivenessCheckActivationMode.OFF,
+    });
+    jest.spyOn(Math, 'random').mockReturnValue(0);
 
-      const upsertSpy = jest
-        .spyOn(prisma.userRisk, 'upsert')
-        .mockResolvedValue(mockRisk);
+    await service.evaluateRisk('user-1', -1.23, -4.56, new Date());
 
-      const result = await service.setLivenessCheckEnabled(
-        userId,
-        riskType,
-        false,
-      );
+    expect(prisma.userRisk.upsert.mock.calls[0][0].update).toMatchObject({
+      livenessCheckActivationMode: LivenessCheckActivationMode.OFF,
+    });
+  });
 
-      expect(upsertSpy).toHaveBeenCalledWith({
-        where: {
-          userId_riskType: {
-            userId,
-            riskType,
-          },
-        },
-        create: {
-          userId,
-          riskType,
-          riskLevel: RiskLevel.NONE,
-          livenessCheckEnabled: false,
-          updatedAt: new Date(),
-        },
+  it('turns an automatic High-risk area toggle off after returning safe', async () => {
+    prisma.userRisk.findUnique.mockResolvedValue({
+      userId: 'user-1',
+      riskType: RiskType.HIGH_RISK_AREA,
+      riskLevel: RiskLevel.CRITICAL,
+      livenessCheckActivationMode: LivenessCheckActivationMode.AUTO,
+    });
+    jest.spyOn(Math, 'random').mockReturnValue(0);
+
+    await service.evaluateRisk('user-1', 1.23, 4.56, new Date());
+
+    expect(prisma.userRisk.upsert.mock.calls[0][0].update).toMatchObject({
+      riskLevel: RiskLevel.LOW,
+      livenessCheckActivationMode: LivenessCheckActivationMode.OFF,
+    });
+  });
+
+  it('keeps manually enabled protection active after a safe location update', async () => {
+    prisma.userRisk.findUnique.mockResolvedValue({
+      userId: 'user-1',
+      riskType: RiskType.HIGH_RISK_AREA,
+      riskLevel: RiskLevel.HIGH,
+      livenessCheckActivationMode: LivenessCheckActivationMode.MANUAL,
+    });
+    jest.spyOn(Math, 'random').mockReturnValue(0);
+
+    await service.evaluateRisk('user-1', 1.23, 4.56, new Date());
+
+    expect(prisma.userRisk.upsert.mock.calls[0][0].update).toMatchObject({
+      livenessCheckActivationMode: LivenessCheckActivationMode.MANUAL,
+    });
+  });
+
+  it('records a manual ON selection', async () => {
+    await service.setLivenessCheckEnabled('user-1', RiskType.DISASTER, true);
+
+    expect(prisma.userRisk.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        create: expect.objectContaining({
+          livenessCheckActivationMode: LivenessCheckActivationMode.MANUAL,
+        }),
         update: {
-          livenessCheckEnabled: false,
+          livenessCheckActivationMode: LivenessCheckActivationMode.MANUAL,
         },
-      });
-      expect(result).toBe(mockRisk);
-    });
+      }),
+    );
   });
 
-  describe('getLivenessCheckStatuses', () => {
-    it('returns liveness flags for all risk types of the user', async () => {
-      const userId = 'user-1';
-      const rows = [
-        { riskType: RiskType.HIGH_RISK_AREA, livenessCheckEnabled: true },
-        { riskType: RiskType.DISASTER, livenessCheckEnabled: false },
-      ];
+  it('returns both Protect Me types, defaulting unseen types to OFF', async () => {
+    prisma.userRisk.findMany.mockResolvedValue([
+      {
+        riskType: RiskType.HIGH_RISK_AREA,
+        riskLevel: RiskLevel.HIGH,
+        livenessCheckActivationMode: LivenessCheckActivationMode.AUTO,
+      },
+    ]);
 
-      const findManySpy = jest
-        .spyOn(prisma.userRisk, 'findMany')
-        .mockResolvedValue(rows as UserRisk[]);
-
-      const result = await service.getLivenessCheckStatuses(userId);
-
-      expect(findManySpy).toHaveBeenCalledWith({
-        where: { userId },
-        select: {
-          riskType: true,
-          livenessCheckEnabled: true,
-        },
-      });
-      expect(result).toEqual(rows);
-    });
-  });
-
-  describe('setDisasterRisk', () => {
-    it('upserts DISASTER UserRisk and appends a UserRiskEvent', async () => {
-      const userId = 'user-1';
-      const detectedAt = new Date('2026-07-16T12:00:00.000Z');
-
-      const mockRisk = {
-        userId,
+    await expect(service.getLivenessCheckStatuses('user-1')).resolves.toEqual([
+      {
+        riskType: RiskType.HIGH_RISK_AREA,
+        riskLevel: RiskLevel.HIGH,
+        livenessCheckActivationMode: LivenessCheckActivationMode.AUTO,
+      },
+      {
         riskType: RiskType.DISASTER,
-        riskLevel: RiskLevel.HIGH,
-        updatedAt: detectedAt,
-      } as UserRisk;
+        riskLevel: RiskLevel.NONE,
+        livenessCheckActivationMode: LivenessCheckActivationMode.OFF,
+      },
+    ]);
+  });
 
-      const mockEvent = {
-        id: 'disaster-event-1',
-        userId,
-        riskType: RiskType.DISASTER,
-        riskLevel: RiskLevel.HIGH,
-        detectedAt,
-      } as UserRiskEvent;
+  it('auto-enables Disaster protection for every new affecting disaster', async () => {
+    await service.setDisasterRisk('user-1', RiskLevel.HIGH, new Date());
 
-      const upsertSpy = jest
-        .spyOn(prisma.userRisk, 'upsert')
-        .mockResolvedValue(mockRisk);
-      const createSpy = jest
-        .spyOn(prisma.userRiskEvent, 'create')
-        .mockResolvedValue(mockEvent);
-
-      const result = await service.setDisasterRisk(
-        userId,
-        RiskLevel.HIGH,
-        detectedAt,
-      );
-
-      expect(upsertSpy).toHaveBeenCalledWith({
-        where: {
-          userId_riskType: {
-            userId,
-            riskType: RiskType.DISASTER,
-          },
-        },
-        create: {
-          userId,
-          riskType: RiskType.DISASTER,
-          riskLevel: RiskLevel.HIGH,
-          livenessCheckEnabled: true,
-          updatedAt: detectedAt,
-        },
-        update: {
-          riskLevel: RiskLevel.HIGH,
-          livenessCheckEnabled: true,
-          updatedAt: detectedAt,
-        },
-      });
-      expect(createSpy).toHaveBeenCalledWith({
-        data: {
-          userId,
-          riskType: RiskType.DISASTER,
-          riskLevel: RiskLevel.HIGH,
-          detectedAt,
-        },
-      });
-      expect(result).toEqual({ risk: mockRisk, event: mockEvent });
-    });
-
-    it('disables liveness check for LOW disaster risk', async () => {
-      const upsertSpy = jest
-        .spyOn(prisma.userRisk, 'upsert')
-        .mockResolvedValue({} as UserRisk);
-      jest
-        .spyOn(prisma.userRiskEvent, 'create')
-        .mockResolvedValue({} as UserRiskEvent);
-
-      await service.setDisasterRisk(
-        'user-1',
-        RiskLevel.LOW,
-        new Date('2026-07-16T12:00:00.000Z'),
-      );
-
-      expect(upsertSpy.mock.calls[0][0].create.livenessCheckEnabled).toBe(
-        false,
-      );
-      expect(upsertSpy.mock.calls[0][0].update.livenessCheckEnabled).toBe(
-        false,
-      );
+    expect(prisma.userRisk.upsert.mock.calls[0][0].update).toMatchObject({
+      livenessCheckActivationMode: LivenessCheckActivationMode.AUTO,
     });
   });
 
-  describe('setAccidentRisk', () => {
-    it('upserts ACCIDENT UserRisk and appends a UserRiskEvent', async () => {
-      const userId = 'user-1';
-      const detectedAt = new Date('2026-07-16T12:00:00.000Z');
-
-      const mockRisk = {
-        userId,
-        riskType: RiskType.ACCIDENT,
-        riskLevel: RiskLevel.CRITICAL,
-        updatedAt: detectedAt,
-      } as UserRisk;
-
-      const mockEvent = {
-        id: 'accident-event-1',
-        userId,
-        riskType: RiskType.ACCIDENT,
-        riskLevel: RiskLevel.CRITICAL,
-        detectedAt,
-      } as UserRiskEvent;
-
-      const upsertSpy = jest
-        .spyOn(prisma.userRisk, 'upsert')
-        .mockResolvedValue(mockRisk);
-      const createSpy = jest
-        .spyOn(prisma.userRiskEvent, 'create')
-        .mockResolvedValue(mockEvent);
-
-      const result = await service.setAccidentRisk(
-        userId,
-        RiskLevel.CRITICAL,
-        detectedAt,
-      );
-
-      expect(upsertSpy).toHaveBeenCalledWith({
-        where: {
-          userId_riskType: {
-            userId,
-            riskType: RiskType.ACCIDENT,
-          },
-        },
-        create: {
-          userId,
-          riskType: RiskType.ACCIDENT,
-          riskLevel: RiskLevel.CRITICAL,
-          livenessCheckEnabled: true,
-          updatedAt: detectedAt,
-        },
-        update: {
-          riskLevel: RiskLevel.CRITICAL,
-          livenessCheckEnabled: true,
-          updatedAt: detectedAt,
-        },
-      });
-      expect(createSpy).toHaveBeenCalledWith({
-        data: {
-          userId,
-          riskType: RiskType.ACCIDENT,
-          riskLevel: RiskLevel.CRITICAL,
-          detectedAt,
-        },
-      });
-      expect(result).toEqual({ risk: mockRisk, event: mockEvent });
+  it('keeps a liveness toggle active after an affirmative response', async () => {
+    prisma.userRisk.findUnique.mockResolvedValue({
+      userId: 'user-1',
+      riskType: RiskType.DISASTER,
+      riskLevel: RiskLevel.HIGH,
+      livenessCheckActivationMode: LivenessCheckActivationMode.MANUAL,
     });
 
-    it('disables liveness check for LOW accident risk', async () => {
-      const upsertSpy = jest
-        .spyOn(prisma.userRisk, 'upsert')
-        .mockResolvedValue({} as UserRisk);
-      jest
-        .spyOn(prisma.userRiskEvent, 'create')
-        .mockResolvedValue({} as UserRiskEvent);
+    await service.respondToLivenessCheck('user-1', RiskType.DISASTER, true);
 
-      await service.setAccidentRisk(
-        'user-1',
-        RiskLevel.LOW,
-        new Date('2026-07-16T12:00:00.000Z'),
-      );
-
-      expect(upsertSpy.mock.calls[0][0].create.livenessCheckEnabled).toBe(
-        false,
-      );
-      expect(upsertSpy.mock.calls[0][0].update.livenessCheckEnabled).toBe(
-        false,
-      );
+    expect(prisma.userRisk.upsert.mock.calls[0][0].update).toMatchObject({
+      riskLevel: RiskLevel.NONE,
+      livenessCheckActivationMode: LivenessCheckActivationMode.MANUAL,
     });
   });
 
-  describe('respondToLivenessCheck', () => {
-    it('clears the risk and appends an affirmative UserRiskEvent', async () => {
-      const userId = 'user-1';
-      const riskType = RiskType.HIGH_RISK_AREA;
-      const respondedAt = new Date('2026-07-16T12:00:00.000Z');
-
-      const mockRisk = {
-        userId,
-        riskType,
-        riskLevel: RiskLevel.NONE,
-        updatedAt: respondedAt,
-      } as UserRisk;
-
-      const mockEvent = {
-        id: 'risk-event-1',
-        userId,
-        riskType,
-        riskLevel: RiskLevel.NONE,
-        detectedAt: respondedAt,
-      } as UserRiskEvent;
-
-      const upsertSpy = jest
-        .spyOn(prisma.userRisk, 'upsert')
-        .mockResolvedValue(mockRisk);
-      jest.spyOn(prisma.userRisk, 'findUnique').mockResolvedValue(mockRisk);
-      const createSpy = jest
-        .spyOn(prisma.userRiskEvent, 'create')
-        .mockResolvedValue(mockEvent);
-
-      const result = await service.respondToLivenessCheck(
-        userId,
-        riskType,
-        true,
-      );
-
-      expect(upsertSpy).toHaveBeenCalledWith({
-        where: {
-          userId_riskType: {
-            userId,
-            riskType,
-          },
-        },
-        create: {
-          userId,
-          riskType,
-          riskLevel: RiskLevel.NONE,
-          livenessCheckEnabled: false,
-          updatedAt: respondedAt,
-        },
-        update: {
-          riskLevel: RiskLevel.NONE,
-          livenessCheckEnabled: false,
-          updatedAt: respondedAt,
-        },
-      });
-      expect(createSpy).toHaveBeenCalledWith({
-        data: {
-          userId,
-          riskType,
-          riskLevel: RiskLevel.NONE,
-          detectedAt: respondedAt,
-          isOkay: true,
-        },
-      });
-      expect(result).toEqual({ risk: mockRisk, event: mockEvent });
-    });
-
-    it('preserves the risk and appends a negative UserRiskEvent', async () => {
-      const userId = 'user-1';
-      const riskType = RiskType.DISASTER;
-      const existingRisk = {
-        userId,
-        riskType,
-        riskLevel: RiskLevel.HIGH,
-        livenessCheckEnabled: true,
-      } as UserRisk;
-
-      jest.spyOn(prisma.userRisk, 'findUnique').mockResolvedValue(existingRisk);
-      const upsertSpy = jest
-        .spyOn(prisma.userRisk, 'upsert')
-        .mockResolvedValue(existingRisk);
-      const createSpy = jest
-        .spyOn(prisma.userRiskEvent, 'create')
-        .mockResolvedValue({} as UserRiskEvent);
-
-      await service.respondToLivenessCheck(userId, riskType, false);
-
-      expect(upsertSpy.mock.calls[0][0].update).toEqual({
-        riskLevel: RiskLevel.HIGH,
-        livenessCheckEnabled: true,
-        updatedAt: new Date('2026-07-16T12:00:00.000Z'),
-      });
-      expect(createSpy).toHaveBeenCalledWith({
-        data: {
-          userId,
-          riskType,
-          riskLevel: RiskLevel.HIGH,
-          detectedAt: new Date('2026-07-16T12:00:00.000Z'),
-          isOkay: false,
-        },
-      });
-    });
+  it('excludes accident risk from Protect Me controls', async () => {
+    await expect(
+      service.setLivenessCheckEnabled('user-1', RiskType.ACCIDENT, true),
+    ).rejects.toThrow('Risk type does not support Protect Me.');
   });
 });

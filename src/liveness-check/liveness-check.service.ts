@@ -1,6 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { UserRisk } from '@prisma/client';
+import {
+  LivenessCheckActivationMode,
+  RiskType,
+  UserRisk,
+} from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { PushService } from '../push/push.service';
 import {
@@ -28,8 +32,8 @@ export class LivenessCheckService {
         GROUP BY "userId", "riskType"
       ) n
         ON n."userId" = ur."userId" AND n."riskType" = ur."riskType"
-      WHERE ur."riskLevel" IN ('HIGH', 'CRITICAL')
-        AND ur."livenessCheckEnabled" = true
+      WHERE ur."riskType" IN (${RiskType.HIGH_RISK_AREA}, ${RiskType.DISASTER})
+        AND ur."livenessCheckActivationMode" != ${LivenessCheckActivationMode.OFF}
         AND (n."lastSentAt" IS NULL OR n."lastSentAt" <= NOW() - INTERVAL '1 second' * ${intervalSeconds})
     `;
 

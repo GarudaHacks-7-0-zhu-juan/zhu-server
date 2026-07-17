@@ -5,6 +5,7 @@ import {
   UserEventOutbox,
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { UserRisksService } from '../user-risks/user-risks.service';
 import { UpdateLocationDto } from './dto/update-location.dto';
 import { LocationsService } from './locations.service';
 
@@ -28,12 +29,16 @@ describe('LocationsService', () => {
       callback(mockTx),
     ),
   } as unknown as PrismaService;
+  const mockUserRisks = {
+    evaluateRisk: jest.fn(),
+  };
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         LocationsService,
         { provide: PrismaService, useValue: mockPrisma },
+        { provide: UserRisksService, useValue: mockUserRisks },
       ],
     }).compile();
 
@@ -43,6 +48,9 @@ describe('LocationsService', () => {
     jest.setSystemTime(new Date('2026-07-16T12:00:00.000Z'));
 
     jest.clearAllMocks();
+    mockUserRisks.evaluateRisk.mockResolvedValue({
+      risk: { riskLevel: 'NONE', livenessCheckActivationMode: 'OFF' },
+    });
   });
 
   afterEach(() => {
@@ -134,7 +142,17 @@ describe('LocationsService', () => {
         },
       });
 
-      expect(result).toEqual({ location: mockLocation, event: mockEvent });
+      expect(mockUserRisks.evaluateRisk).toHaveBeenCalledWith(
+        userId,
+        dto.latitude,
+        dto.longitude,
+        now,
+      );
+      expect(result).toEqual({
+        location: mockLocation,
+        event: mockEvent,
+        risk: { riskLevel: 'NONE', livenessCheckActivationMode: 'OFF' },
+      });
     });
 
     it('starts outbox sequence at 1 for a new user', async () => {
