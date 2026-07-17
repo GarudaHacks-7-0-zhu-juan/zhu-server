@@ -32,8 +32,11 @@ export class LivenessCheckService {
         GROUP BY "userId", "riskType"
       ) n
         ON n."userId" = ur."userId" AND n."riskType" = ur."riskType"
-      WHERE ur."riskType" IN (${RiskType.HIGH_RISK_AREA}, ${RiskType.DISASTER})
-        AND ur."livenessCheckActivationMode" != ${LivenessCheckActivationMode.OFF}
+      WHERE ur."riskType" IN (
+        ${RiskType.HIGH_RISK_AREA}::"RiskType",
+        ${RiskType.DISASTER}::"RiskType"
+      )
+        AND ur."livenessCheckActivationMode" != ${LivenessCheckActivationMode.OFF}::"LivenessCheckActivationMode"
         AND (n."lastSentAt" IS NULL OR n."lastSentAt" <= NOW() - INTERVAL '1 second' * ${intervalSeconds})
     `;
 

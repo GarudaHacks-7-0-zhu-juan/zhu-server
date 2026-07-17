@@ -81,6 +81,19 @@ describe('LivenessCheckService', () => {
       const call = querySpy.mock.calls[0];
       expect(call).toContain(DEFAULT_LIVENESS_CHECK_RISK_AGE_SECONDS);
     });
+
+    it('casts bound parameters to PostgreSQL enum types', async () => {
+      mockConfig.get.mockReturnValue(undefined);
+      mockPrisma.$queryRaw.mockResolvedValue([]);
+      const querySpy = jest.spyOn(prisma, '$queryRaw');
+
+      await service.findUsersNeedingCheck();
+
+      const query = querySpy.mock.calls[0][0] as TemplateStringsArray;
+      const sql = query.join('?');
+      expect(sql).toContain('?::"RiskType"');
+      expect(sql).toContain('?::"LivenessCheckActivationMode"');
+    });
   });
 
   describe('dispatchCheckBatch', () => {
