@@ -6,7 +6,9 @@ This branch adds the user identifiers, ring configuration, and ring notification
 
 ## User Identifiers
 
-`User.phoneNumber` is unique and required for registration.
+`User.phoneNumber` is unique and required for registration. `User.displayName`
+is optional so existing accounts remain valid while new clients can provide a
+name for guardian-facing summaries.
 
 ## Ring Configuration
 

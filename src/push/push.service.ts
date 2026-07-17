@@ -148,6 +148,9 @@ export class PushService {
     guardianId: string,
     riskType: RiskType,
     trigger: GuardianRiskNotificationTrigger,
+    notificationId: string,
+    guardeeId: string,
+    guardeeDisplayName?: string,
   ): Promise<{ sent: number; failed: number }> {
     if (!this.gateway.isAvailable) {
       this.logger.warn(
@@ -170,6 +173,9 @@ export class PushService {
           device.registrationToken,
           riskType,
           trigger,
+          notificationId,
+          guardeeId,
+          guardeeDisplayName,
         ),
       ),
     );

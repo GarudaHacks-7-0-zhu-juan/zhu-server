@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "zhu-server",
-    "description": "Postman collection for the zhu-server NestJS API. The server is mounted under the global /api prefix (see src/main.ts), so all paths below include it via the {{baseUrl}} variable (default: http://localhost:3000/api).\n\nRun the requests in this order to keep collection variables in sync:\n  1. App > Get status\n  2. Auth > Register (populates {{accessToken}} and {{refreshToken}})\n  3. Auth > Login (refreshes the tokens)\n  4. Auth > Me (uses {{accessToken}})\n  5. Locations > Update location (uses {{accessToken}})\n  6. User risks > Set liveness check (uses {{accessToken}})\n  7. User risks > Get liveness check statuses (uses {{accessToken}})\n  8. User risks > Respond to liveness check (uses {{accessToken}})\n  9. Auth > Refresh (uses {{refreshToken}})\n  10. Auth > Logout (uses {{accessToken}})",
+    "description": "Postman collection for the zhu-server NestJS API. The server is mounted under the global /api prefix (see src/main.ts), so all paths below include it via the {{baseUrl}} variable (default: http://localhost:3000/api).\n\nRun the requests in this order to keep collection variables in sync:\n  1. App > Get status\n  2. Auth > Register (populates {{accessToken}} and {{refreshToken}})\n  3. Auth > Login (refreshes the tokens)\n  4. Users > Get my profile (uses {{accessToken}})\n  5. Locations > Update location (uses {{accessToken}})\n  6. User risks > Set liveness check (uses {{accessToken}})\n  7. User risks > Get liveness check statuses (uses {{accessToken}})\n  8. User risks > Respond to liveness check (uses {{accessToken}})\n  9. Auth > Refresh (uses {{refreshToken}})\n  10. Auth > Logout (uses {{accessToken}})",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -88,14 +88,14 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"test+user@example.com\",\n  \"password\": \"Password123\",\n  \"phoneNumber\": \"+628123456789\"\n}"
+              "raw": "{\n  \"displayName\": \"Test User\",\n  \"email\": \"test+user@example.com\",\n  \"password\": \"Password123\",\n  \"phoneNumber\": \"+628123456789\"\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/auth/register",
               "host": ["{{baseUrl}}"],
               "path": ["auth", "register"]
             },
-            "description": "POST /api/auth/register. Body: RegisterDto { email, password (min 8 chars), phoneNumber (E.164) }. Returns { accessToken, refreshToken }. Throws 409 on duplicate email or phone number."
+            "description": "POST /api/auth/register. Body: RegisterDto { displayName (optional, max 80 chars), email, password (min 8 chars), phoneNumber (E.164) }. Returns { accessToken, refreshToken }. Throws 409 on duplicate email or phone number."
           },
           "event": [
             {
@@ -290,6 +290,54 @@
       ]
     },
     {
+      "name": "Users",
+      "item": [
+        {
+          "name": "Get my profile",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/users/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["users", "me"]
+            },
+            "description": "GET /api/users/me. Requires Authorization: Bearer {{accessToken}}. Returns the authenticated user's public profile: id, displayName, email, phoneNumber, createdAt, and updatedAt. Credential hashes, tokens, devices, risks, and relationships are never included."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "var json = pm.response.json();",
+                  "pm.test('Response has public profile fields only', function () {",
+                  "  pm.expect(json).to.have.property('id');",
+                  "  pm.expect(json).to.have.property('displayName');",
+                  "  pm.expect(json).to.have.property('email');",
+                  "  pm.expect(json).to.have.property('phoneNumber');",
+                  "  pm.expect(json).to.have.property('createdAt');",
+                  "  pm.expect(json).to.have.property('updatedAt');",
+                  "  pm.expect(json).not.to.have.property('passwordHash');",
+                  "  pm.expect(json).not.to.have.property('refreshTokenHash');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
       "name": "Guardians",
       "item": [
         {
@@ -355,6 +403,36 @@
               "path": ["guardians", "{{guardianId}}"]
             },
             "description": "DELETE /api/guardians/:guardianId. Requires Authorization: Bearer {{accessToken}}. Removes the selected guardian relationship."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Guardian Notifications",
+      "item": [
+        {
+          "name": "List Notifications",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/guardian-notifications?limit=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["guardian-notifications"],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "20"
+                }
+              ]
+            },
+            "description": "GET /api/guardian-notifications. Requires a guardian access token. Returns newest-first notification history with guardee id, nullable displayName, email, riskType, trigger, and sentAt. Use nextCursor as the cursor query parameter for the next page."
           }
         }
       ]

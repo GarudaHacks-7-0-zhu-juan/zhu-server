@@ -10,6 +10,7 @@ import {
   UserRisk,
 } from '@prisma/client';
 import { Queue } from 'bullmq';
+import { randomUUID } from 'node:crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { PushService } from '../push/push.service';
 import {
@@ -75,6 +76,32 @@ export class GuardianNotificationService {
     );
   }
 
+  async listForGuardian(guardianId: string, cursor?: string, limit = 20) {
+    const notifications = await this.prisma.guardianRiskNotification.findMany({
+      where: { guardianId },
+      orderBy: [{ sentAt: 'desc' }, { id: 'desc' }],
+      take: limit + 1,
+      ...(cursor
+        ? {
+            cursor: { id: cursor },
+            skip: 1,
+          }
+        : {}),
+      include: {
+        guardee: {
+          select: { id: true, displayName: true, email: true },
+        },
+      },
+    });
+    const hasMore = notifications.length > limit;
+    const items = notifications.slice(0, limit);
+
+    return {
+      items,
+      nextCursor: hasMore ? (items.at(-1)?.id ?? null) : null,
+    };
+  }
+
   private async findRisksWithUnansweredCheck(): Promise<UserRisk[]> {
     const riskAgeSeconds = Number(
       this.config.get<string>(GUARDIAN_NOTIFICATION_RISK_AGE_SECONDS_ENV) ??
@@ -115,10 +142,13 @@ export class GuardianNotificationService {
   ): Promise<void> {
     const guardians = await this.prisma.guardianRelationship.findMany({
       where: { guardeeId, status: GuardianRelationshipStatus.ACCEPTED },
-      select: { guardianId: true },
+      select: {
+        guardianId: true,
+        guardee: { select: { displayName: true } },
+      },
     });
 
-    for (const { guardianId } of guardians) {
+    for (const { guardianId, guardee } of guardians) {
       if (
         await this.wasRecentlyNotified(
           guardianId,
@@ -131,10 +161,14 @@ export class GuardianNotificationService {
         continue;
       }
 
+      const notificationId = randomUUID();
       const result = await this.push.sendGuardianRiskNotification(
         guardianId,
         riskType,
         trigger,
+        notificationId,
+        guardeeId,
+        guardee.displayName ?? undefined,
       );
       if (result.sent === 0) {
         continue;
@@ -142,6 +176,7 @@ export class GuardianNotificationService {
 
       await this.prisma.guardianRiskNotification.create({
         data: {
+          id: notificationId,
           guardianId,
           guardeeId,
           riskType,

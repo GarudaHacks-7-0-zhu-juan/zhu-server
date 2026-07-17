@@ -49,12 +49,14 @@ describe('AuthService', () => {
       email: 'user@example.com',
       password: 'password123',
       phoneNumber: '+628123456789',
+      displayName: 'Ada',
     });
 
     expect(users.create).toHaveBeenCalledWith(
       'user@example.com',
       'password-hash',
       '+628123456789',
+      'Ada',
     );
     expect(Logger.prototype.log).toHaveBeenCalledWith({
       event: 'auth.registered',

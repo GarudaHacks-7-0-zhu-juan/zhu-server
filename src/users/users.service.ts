@@ -10,9 +10,10 @@ export class UsersService {
     email: string,
     passwordHash: string,
     phoneNumber: string,
+    displayName?: string,
   ): Promise<User> {
     return this.prisma.user.create({
-      data: { email, passwordHash, phoneNumber },
+      data: { email, passwordHash, phoneNumber, displayName },
     });
   }
 
@@ -22,6 +23,20 @@ export class UsersService {
 
   findById(id: string): Promise<User | null> {
     return this.prisma.user.findUnique({ where: { id } });
+  }
+
+  findProfileById(id: string) {
+    return this.prisma.user.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        displayName: true,
+        email: true,
+        phoneNumber: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
   }
 
   updateRefreshToken(

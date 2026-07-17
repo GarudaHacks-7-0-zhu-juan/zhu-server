@@ -101,6 +101,9 @@ describe('FirebaseMessagingGateway', () => {
       'registration-token',
       'DISASTER',
       'NEGATIVE_RESPONSE',
+      'notification-1',
+      'guardee-1',
+      'Ada',
     );
 
     expect(messaging.send).toHaveBeenCalledWith({
@@ -111,7 +114,10 @@ describe('FirebaseMessagingGateway', () => {
       },
       data: {
         eventType: 'GUARDIAN_RISK_ALERT',
-        route: '/guardees',
+        notificationId: 'notification-1',
+        guardeeId: 'guardee-1',
+        guardeeDisplayName: 'Ada',
+        route: '/guardees/guardee-1',
         riskType: 'DISASTER',
         trigger: 'NEGATIVE_RESPONSE',
       },
@@ -129,6 +135,8 @@ describe('FirebaseMessagingGateway', () => {
       'registration-token',
       'ACCIDENT',
       'FALL_DETECTED',
+      'notification-2',
+      'guardee-1',
     );
 
     expect(messaging.send).toHaveBeenCalledWith({
@@ -139,7 +147,9 @@ describe('FirebaseMessagingGateway', () => {
       },
       data: {
         eventType: 'GUARDIAN_RISK_ALERT',
-        route: '/guardees',
+        notificationId: 'notification-2',
+        guardeeId: 'guardee-1',
+        route: '/guardees/guardee-1',
         riskType: 'ACCIDENT',
         trigger: 'FALL_DETECTED',
       },
