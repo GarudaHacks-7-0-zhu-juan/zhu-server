@@ -48,6 +48,7 @@ enum GuardianRelationshipInitiatorRole {
 }
 
 enum GuardianRiskNotificationTrigger {
+  FALL_DETECTED
   LIVENESS_TIMEOUT
   NEGATIVE_RESPONSE
 }

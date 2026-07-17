@@ -1,5 +1,6 @@
 import { Body, Controller, Post, Req, UseGuards } from '@nestjs/common';
 import { Request } from 'express';
+import { AccidentEventType } from '@prisma/client';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { JwtPayload } from '../auth/types/jwt-payload.type';
 import { AccidentsService } from './accidents.service';
@@ -18,6 +19,10 @@ export class AccidentsController {
     @Body() dto: CreateAccidentEventDto,
   ) {
     const detectedAt = dto.detectedAt ? new Date(dto.detectedAt) : new Date();
+
+    if (dto.eventType === AccidentEventType.FALL_DETECTED) {
+      return this.accidents.recordFall(request.user.sub, detectedAt);
+    }
 
     return this.accidents.recordEvent({
       userId: request.user.sub,

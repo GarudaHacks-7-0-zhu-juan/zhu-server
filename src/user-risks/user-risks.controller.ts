@@ -57,7 +57,7 @@ export class UserRisksController {
       riskType,
       dto.isOkay,
     );
-    if (!dto.isOkay) {
+    if (!dto.isOkay && riskType !== RiskType.ACCIDENT) {
       await this.guardianNotifications.enqueueNegativeResponse({
         guardeeId: request.user.sub,
         riskType,

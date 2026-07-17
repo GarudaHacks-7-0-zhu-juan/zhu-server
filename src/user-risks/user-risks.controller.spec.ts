@@ -131,5 +131,15 @@ describe('UserRisksController', () => {
         responseEventId: 'risk-event-1',
       });
     });
+
+    it('does not re-alert guardians for a negative fall response', async () => {
+      await controller.respondToLivenessCheck(request, RiskType.ACCIDENT, {
+        isOkay: false,
+      });
+
+      expect(
+        mockGuardianNotifications.enqueueNegativeResponse,
+      ).not.toHaveBeenCalled();
+    });
   });
 });

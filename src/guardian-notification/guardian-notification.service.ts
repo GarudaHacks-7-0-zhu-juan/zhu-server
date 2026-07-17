@@ -4,6 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import {
   GuardianRelationshipStatus,
   GuardianRiskNotificationTrigger,
+  LivenessCheckActivationMode,
   RiskLevel,
   RiskType,
   UserRisk,
@@ -62,6 +63,18 @@ export class GuardianNotificationService {
     );
   }
 
+  async dispatchFallDetected(
+    guardeeId: string,
+    accidentEventId: string,
+  ): Promise<void> {
+    await this.notifyGuardians(
+      guardeeId,
+      RiskType.ACCIDENT,
+      GuardianRiskNotificationTrigger.FALL_DETECTED,
+      accidentEventId,
+    );
+  }
+
   private async findRisksWithUnansweredCheck(): Promise<UserRisk[]> {
     const riskAgeSeconds = Number(
       this.config.get<string>(GUARDIAN_NOTIFICATION_RISK_AGE_SECONDS_ENV) ??
@@ -77,7 +90,11 @@ export class GuardianNotificationService {
         WHERE "userId" = ur."userId" AND "riskType" = ur."riskType"
       ) n ON true
       WHERE ur."riskLevel" IN (${RiskLevel.HIGH}, ${RiskLevel.CRITICAL})
-        AND ur."livenessCheckEnabled" = true
+        AND ur."riskType" IN (
+          ${RiskType.HIGH_RISK_AREA}::"RiskType",
+          ${RiskType.DISASTER}::"RiskType"
+        )
+        AND ur."livenessCheckActivationMode" != ${LivenessCheckActivationMode.OFF}::"LivenessCheckActivationMode"
         AND n."lastSentAt" <= NOW() - INTERVAL '1 second' * ${riskAgeSeconds}
         AND NOT EXISTS (
           SELECT 1

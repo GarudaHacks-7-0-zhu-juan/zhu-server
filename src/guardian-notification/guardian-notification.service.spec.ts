@@ -108,6 +108,25 @@ describe('GuardianNotificationService', () => {
     expect(push.sendGuardianRiskNotification).not.toHaveBeenCalled();
   });
 
+  it('immediately notifies accepted guardians once per fall event', async () => {
+    await service.dispatchFallDetected('guardee-1', 'fall-event-1');
+
+    expect(push.sendGuardianRiskNotification).toHaveBeenCalledWith(
+      'guardian-1',
+      RiskType.ACCIDENT,
+      GuardianRiskNotificationTrigger.FALL_DETECTED,
+    );
+    expect(prisma.guardianRiskNotification.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        guardianId: 'guardian-1',
+        guardeeId: 'guardee-1',
+        riskType: RiskType.ACCIDENT,
+        trigger: GuardianRiskNotificationTrigger.FALL_DETECTED,
+        responseEventId: 'fall-event-1',
+      }),
+    });
+  });
+
   it('sends timeout alerts for risks returned by the unanswered-check query', async () => {
     prisma.$queryRaw.mockResolvedValue([
       {

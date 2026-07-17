@@ -49,8 +49,14 @@ export class FirebaseMessagingGateway {
     await this.send({
       token: registrationToken,
       notification: {
-        title: 'Guardee safety alert',
-        body: 'A guardee may need your attention.',
+        title:
+          trigger === 'FALL_DETECTED'
+            ? 'Fall detected'
+            : 'Guardee safety alert',
+        body:
+          trigger === 'FALL_DETECTED'
+            ? 'Your guardee may need assistance after a fall.'
+            : 'A guardee may need your attention.',
       },
       data: {
         eventType: 'GUARDIAN_RISK_ALERT',
@@ -71,8 +77,7 @@ export class FirebaseMessagingGateway {
       data: {
         eventType: 'LIVENESS_CHECK',
         riskType: 'HIGH_RISK_AREA',
-        title: 'Are you safe?',
-        body: 'Confirm that you are safe.',
+        ...this.livenessCopy('HIGH_RISK_AREA'),
       },
       android: { priority: 'high' },
     });
@@ -87,11 +92,35 @@ export class FirebaseMessagingGateway {
       data: {
         eventType: 'LIVENESS_CHECK',
         riskType,
-        title: 'Are you safe?',
-        body: 'Confirm that you are safe.',
+        ...this.livenessCopy(riskType),
       },
       android: { priority: 'high' },
     });
+  }
+
+  private livenessCopy(riskType: string): { title: string; body: string } {
+    switch (riskType) {
+      case 'HIGH_RISK_AREA':
+        return {
+          title: 'High-risk area check-in',
+          body: "You're in an area with elevated risk. Are you safe?",
+        };
+      case 'DISASTER':
+        return {
+          title: 'Disaster safety check',
+          body: "A disaster may be affecting your area. Confirm that you're safe.",
+        };
+      case 'ACCIDENT':
+        return {
+          title: 'Fall detected',
+          body: 'We detected a fall. Are you safe?',
+        };
+      default:
+        return {
+          title: 'Are you safe?',
+          body: 'Confirm that you are safe.',
+        };
+    }
   }
 
   private async send(message: Message): Promise<void> {

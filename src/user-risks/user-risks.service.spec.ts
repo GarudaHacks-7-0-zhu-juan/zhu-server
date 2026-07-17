@@ -169,4 +169,20 @@ describe('UserRisksService', () => {
       service.setLivenessCheckEnabled('user-1', RiskType.ACCIDENT, true),
     ).rejects.toThrow('Risk type does not support Protect Me.');
   });
+
+  it('clears accident risk after an affirmative fall response', async () => {
+    prisma.userRisk.findUnique.mockResolvedValue({
+      userId: 'user-1',
+      riskType: RiskType.ACCIDENT,
+      riskLevel: RiskLevel.CRITICAL,
+      livenessCheckActivationMode: LivenessCheckActivationMode.OFF,
+    });
+
+    await service.respondToLivenessCheck('user-1', RiskType.ACCIDENT, true);
+
+    expect(prisma.userRisk.upsert.mock.calls[0][0].update).toMatchObject({
+      riskLevel: RiskLevel.NONE,
+      livenessCheckActivationMode: LivenessCheckActivationMode.OFF,
+    });
+  });
 });

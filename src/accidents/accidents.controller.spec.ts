@@ -21,6 +21,7 @@ describe('AccidentsController', () => {
 
   const mockAccidentsService = {
     recordEvent: jest.fn().mockResolvedValue(mockEvent),
+    recordFall: jest.fn().mockResolvedValue(mockEvent),
   };
 
   const request = {
@@ -45,14 +46,11 @@ describe('AccidentsController', () => {
     const dto: CreateAccidentEventDto = {
       eventType: AccidentEventType.FALL_DETECTED,
     };
-    const recordSpy = jest.spyOn(service, 'recordEvent');
+    const recordSpy = jest.spyOn(service, 'recordFall');
 
     const result = await controller.createEvent(request, dto);
-    const call = recordSpy.mock.calls[0][0];
 
-    expect(call.userId).toBe('user-1');
-    expect(call.eventType).toBe(AccidentEventType.FALL_DETECTED);
-    expect(call.detectedAt).toBeInstanceOf(Date);
+    expect(recordSpy).toHaveBeenCalledWith('user-1', expect.any(Date));
     expect(result).toBe(mockEvent);
   });
 
