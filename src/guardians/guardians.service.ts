@@ -17,6 +17,7 @@ import { PrismaService } from '../prisma/prisma.service';
 
 const userSummary = {
   id: true,
+  displayName: true,
   email: true,
   phoneNumber: true,
 } as const;

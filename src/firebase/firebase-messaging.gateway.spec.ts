@@ -99,10 +99,12 @@ describe('FirebaseMessagingGateway', () => {
 
     await gateway.sendGuardianRiskNotification(
       'registration-token',
-      'guardee-1',
-      'guardee@example.com',
       'DISASTER',
       'NEGATIVE_RESPONSE',
+      'notification-1',
+      'guardee-1',
+      'guardee@example.com',
+      'Ada',
     );
 
     expect(messaging.send).toHaveBeenCalledWith({
@@ -114,7 +116,9 @@ describe('FirebaseMessagingGateway', () => {
       data: {
         eventType: 'GUARDIAN_RISK_ALERT',
         route: '/guardees',
+        notificationId: 'notification-1',
         guardeeId: 'guardee-1',
+        guardeeDisplayName: 'Ada',
         riskType: 'DISASTER',
         trigger: 'NEGATIVE_RESPONSE',
       },
@@ -130,10 +134,11 @@ describe('FirebaseMessagingGateway', () => {
 
     await gateway.sendGuardianRiskNotification(
       'registration-token',
-      'guardee-1',
-      '+628123456789',
       'ACCIDENT',
       'FALL_DETECTED',
+      'notification-2',
+      'guardee-1',
+      '+628123456789',
     );
 
     expect(messaging.send).toHaveBeenCalledWith({
@@ -145,6 +150,7 @@ describe('FirebaseMessagingGateway', () => {
       data: {
         eventType: 'GUARDIAN_RISK_ALERT',
         route: '/guardees',
+        notificationId: 'notification-2',
         guardeeId: 'guardee-1',
         riskType: 'ACCIDENT',
         trigger: 'FALL_DETECTED',

@@ -55,6 +55,7 @@ enum GuardianRiskNotificationTrigger {
 
 model User {
   id                String                 @id @default(uuid())
+  displayName       String?
   email             String                 @unique
   phoneNumber       String                 @unique
   passwordHash      String

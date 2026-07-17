@@ -29,6 +29,7 @@ describe('User handling (e2e)', () => {
     const suffix = Date.now();
     const phoneSeed = String(suffix).slice(-8);
     const guardee = {
+      displayName: 'Guardee User',
       email: `guardee-${suffix}@example.com`,
       password: 'password123',
       phoneNumber: `+628${phoneSeed}01`,
@@ -47,6 +48,23 @@ describe('User handling (e2e)', () => {
       .post('/api/auth/register')
       .send(guardian)
       .expect(201);
+
+    await request(app.getHttpServer())
+      .get('/api/users/me')
+      .set('Authorization', `Bearer ${guardeeRegistration.body.accessToken}`)
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body).toMatchObject({
+          displayName: guardee.displayName,
+          email: guardee.email,
+          phoneNumber: guardee.phoneNumber,
+        });
+        expect(body).toHaveProperty('id');
+        expect(body).toHaveProperty('createdAt');
+        expect(body).toHaveProperty('updatedAt');
+        expect(body).not.toHaveProperty('passwordHash');
+        expect(body).not.toHaveProperty('refreshTokenHash');
+      });
 
     const guardeeIdentity = await request(app.getHttpServer())
       .get('/api/auth/me')

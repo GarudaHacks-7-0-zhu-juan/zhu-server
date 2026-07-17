@@ -146,10 +146,12 @@ export class PushService {
 
   async sendGuardianRiskNotification(
     guardianId: string,
-    guardeeId: string,
-    guardeeIdentity: string,
     riskType: RiskType,
     trigger: GuardianRiskNotificationTrigger,
+    notificationId: string,
+    guardeeId: string,
+    guardeeIdentity: string,
+    guardeeDisplayName?: string,
   ): Promise<{ sent: number; failed: number }> {
     if (!this.gateway.isAvailable) {
       this.logger.warn(
@@ -170,10 +172,12 @@ export class PushService {
       devices.map((device) =>
         this.gateway.sendGuardianRiskNotification(
           device.registrationToken,
-          guardeeId,
-          guardeeIdentity,
           riskType,
           trigger,
+          notificationId,
+          guardeeId,
+          guardeeIdentity,
+          guardeeDisplayName,
         ),
       ),
     );

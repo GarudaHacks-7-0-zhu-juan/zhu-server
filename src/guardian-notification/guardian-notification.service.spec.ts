@@ -20,6 +20,7 @@ describe('GuardianNotificationService', () => {
       findFirst: jest.fn(),
       findUnique: jest.fn(),
       create: jest.fn(),
+      findMany: jest.fn(),
     },
   };
   const push = { sendGuardianRiskNotification: jest.fn() };
@@ -38,7 +39,11 @@ describe('GuardianNotificationService', () => {
     prisma.guardianRelationship.findMany.mockResolvedValue([
       {
         guardianId: 'guardian-1',
-        guardee: { email: 'guardee@example.com', phoneNumber: '+628123456789' },
+        guardee: {
+          displayName: 'Ada',
+          email: 'guardee@example.com',
+          phoneNumber: '+628123456789',
+        },
       },
     ]);
     prisma.guardianRiskNotification.findFirst.mockResolvedValue(null);
@@ -81,15 +86,19 @@ describe('GuardianNotificationService', () => {
       },
       select: {
         guardianId: true,
-        guardee: { select: { email: true, phoneNumber: true } },
+        guardee: {
+          select: { displayName: true, email: true, phoneNumber: true },
+        },
       },
     });
     expect(push.sendGuardianRiskNotification).toHaveBeenCalledWith(
       'guardian-1',
-      'guardee-1',
-      'guardee@example.com',
       RiskType.ACCIDENT,
       GuardianRiskNotificationTrigger.NEGATIVE_RESPONSE,
+      expect.any(String),
+      'guardee-1',
+      'Ada',
+      'Ada',
     );
     expect(prisma.guardianRiskNotification.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
@@ -121,10 +130,12 @@ describe('GuardianNotificationService', () => {
 
     expect(push.sendGuardianRiskNotification).toHaveBeenCalledWith(
       'guardian-1',
-      'guardee-1',
-      'guardee@example.com',
       RiskType.ACCIDENT,
       GuardianRiskNotificationTrigger.FALL_DETECTED,
+      expect.any(String),
+      'guardee-1',
+      'Ada',
+      'Ada',
     );
     expect(prisma.guardianRiskNotification.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
@@ -150,16 +161,65 @@ describe('GuardianNotificationService', () => {
 
     expect(push.sendGuardianRiskNotification).toHaveBeenCalledWith(
       'guardian-1',
-      'guardee-1',
-      'guardee@example.com',
       RiskType.HIGH_RISK_AREA,
       GuardianRiskNotificationTrigger.LIVENESS_TIMEOUT,
+      expect.any(String),
+      'guardee-1',
+      'Ada',
+      'Ada',
     );
     expect(prisma.guardianRiskNotification.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
         trigger: GuardianRiskNotificationTrigger.LIVENESS_TIMEOUT,
         responseEventId: undefined,
       }),
+    });
+  });
+
+  it('returns only the guardian notification history with guardee summaries', async () => {
+    prisma.guardianRiskNotification.findMany.mockResolvedValue([
+      {
+        id: 'notification-2',
+        guardianId: 'guardian-1',
+        guardee: {
+          id: 'guardee-2',
+          displayName: null,
+          email: 'two@example.com',
+        },
+      },
+      {
+        id: 'notification-1',
+        guardianId: 'guardian-1',
+        guardee: {
+          id: 'guardee-1',
+          displayName: 'Ada',
+          email: 'ada@example.com',
+        },
+      },
+    ]);
+
+    await expect(
+      service.listForGuardian('guardian-1', 'cursor-1', 1),
+    ).resolves.toEqual({
+      items: [
+        expect.objectContaining({
+          id: 'notification-2',
+          guardee: expect.objectContaining({ displayName: null }),
+        }),
+      ],
+      nextCursor: 'notification-2',
+    });
+    expect(prisma.guardianRiskNotification.findMany).toHaveBeenCalledWith({
+      where: { guardianId: 'guardian-1' },
+      orderBy: [{ sentAt: 'desc' }, { id: 'desc' }],
+      take: 2,
+      cursor: { id: 'cursor-1' },
+      skip: 1,
+      include: {
+        guardee: {
+          select: { id: true, displayName: true, email: true },
+        },
+      },
     });
   });
 });
