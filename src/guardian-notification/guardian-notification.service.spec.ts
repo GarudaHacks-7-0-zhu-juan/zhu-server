@@ -37,7 +37,14 @@ describe('GuardianNotificationService', () => {
     config.get.mockReturnValue(undefined);
     push.sendGuardianRiskNotification.mockResolvedValue({ sent: 1, failed: 0 });
     prisma.guardianRelationship.findMany.mockResolvedValue([
-      { guardianId: 'guardian-1', guardee: { displayName: 'Ada' } },
+      {
+        guardianId: 'guardian-1',
+        guardee: {
+          displayName: 'Ada',
+          email: 'guardee@example.com',
+          phoneNumber: '+628123456789',
+        },
+      },
     ]);
     prisma.guardianRiskNotification.findFirst.mockResolvedValue(null);
     prisma.guardianRiskNotification.findUnique.mockResolvedValue(null);
@@ -79,7 +86,9 @@ describe('GuardianNotificationService', () => {
       },
       select: {
         guardianId: true,
-        guardee: { select: { displayName: true } },
+        guardee: {
+          select: { displayName: true, email: true, phoneNumber: true },
+        },
       },
     });
     expect(push.sendGuardianRiskNotification).toHaveBeenCalledWith(
@@ -88,6 +97,7 @@ describe('GuardianNotificationService', () => {
       GuardianRiskNotificationTrigger.NEGATIVE_RESPONSE,
       expect.any(String),
       'guardee-1',
+      'Ada',
       'Ada',
     );
     expect(prisma.guardianRiskNotification.create).toHaveBeenCalledWith({
@@ -125,6 +135,7 @@ describe('GuardianNotificationService', () => {
       expect.any(String),
       'guardee-1',
       'Ada',
+      'Ada',
     );
     expect(prisma.guardianRiskNotification.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
@@ -154,6 +165,7 @@ describe('GuardianNotificationService', () => {
       GuardianRiskNotificationTrigger.LIVENESS_TIMEOUT,
       expect.any(String),
       'guardee-1',
+      'Ada',
       'Ada',
     );
     expect(prisma.guardianRiskNotification.create).toHaveBeenCalledWith({

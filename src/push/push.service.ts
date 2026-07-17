@@ -150,6 +150,7 @@ export class PushService {
     trigger: GuardianRiskNotificationTrigger,
     notificationId: string,
     guardeeId: string,
+    guardeeIdentity: string,
     guardeeDisplayName?: string,
   ): Promise<{ sent: number; failed: number }> {
     if (!this.gateway.isAvailable) {
@@ -175,6 +176,7 @@ export class PushService {
           trigger,
           notificationId,
           guardeeId,
+          guardeeIdentity,
           guardeeDisplayName,
         ),
       ),

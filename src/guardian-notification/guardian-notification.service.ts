@@ -144,7 +144,9 @@ export class GuardianNotificationService {
       where: { guardeeId, status: GuardianRelationshipStatus.ACCEPTED },
       select: {
         guardianId: true,
-        guardee: { select: { displayName: true } },
+        guardee: {
+          select: { displayName: true, email: true, phoneNumber: true },
+        },
       },
     });
 
@@ -168,6 +170,7 @@ export class GuardianNotificationService {
         trigger,
         notificationId,
         guardeeId,
+        guardee.displayName ?? guardee.email ?? guardee.phoneNumber,
         guardee.displayName ?? undefined,
       );
       if (result.sent === 0) {

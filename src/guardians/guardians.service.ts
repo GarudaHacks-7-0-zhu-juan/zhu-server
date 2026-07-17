@@ -8,6 +8,10 @@ import {
 import {
   GuardianRelationshipInitiatorRole,
   GuardianRelationshipStatus,
+  GuardianRiskNotificationTrigger,
+  LivenessCheckActivationMode,
+  RiskLevel,
+  RiskType,
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -17,6 +21,20 @@ const userSummary = {
   email: true,
   phoneNumber: true,
 } as const;
+
+type GuardeeSafetyData = {
+  risks: Array<{
+    riskType: RiskType;
+    riskLevel: RiskLevel;
+    updatedAt: Date;
+    livenessCheckActivationMode: LivenessCheckActivationMode;
+  }>;
+  guardianRiskNotificationsReceived: Array<{
+    riskType: RiskType;
+    trigger: GuardianRiskNotificationTrigger;
+    sentAt: Date;
+  }>;
+};
 
 @Injectable()
 export class GuardiansService {
@@ -210,12 +228,27 @@ export class GuardiansService {
     });
   }
 
-  listGuardees(guardianId: string) {
-    return this.prisma.guardianRelationship.findMany({
+  async listGuardees(guardianId: string) {
+    const relationships = await this.prisma.guardianRelationship.findMany({
       where: { guardianId, status: GuardianRelationshipStatus.ACCEPTED },
       orderBy: { updatedAt: 'desc' },
-      include: { guardee: { select: userSummary } },
+      include: { guardee: { select: this.guardeeSelection(guardianId) } },
     });
+
+    return relationships.map(
+      ({
+        guardee: { risks, guardianRiskNotificationsReceived, ...guardee },
+        ...relationship
+      }) => ({
+        ...relationship,
+        guardee,
+        location: guardee.location,
+        ...this.deriveSafetyStatus({
+          risks,
+          guardianRiskNotificationsReceived,
+        }),
+      }),
+    );
   }
 
   async getGuardeeDetail(guardianId: string, guardeeId: string) {
@@ -227,10 +260,7 @@ export class GuardiansService {
       },
       include: {
         guardee: {
-          select: {
-            ...userSummary,
-            location: true,
-          },
+          select: this.guardeeSelection(guardianId),
         },
       },
     });
@@ -238,10 +268,128 @@ export class GuardiansService {
       throw new NotFoundException('Accepted guardian relationship not found');
     }
 
+    const { risks, guardianRiskNotificationsReceived, ...guardee } =
+      relationship.guardee;
+
     return {
-      guardee: relationship.guardee,
-      location: relationship.guardee.location,
+      guardee,
+      location: guardee.location,
+      ...this.deriveSafetyStatus({ risks, guardianRiskNotificationsReceived }),
     };
+  }
+
+  private guardeeSelection(guardianId: string) {
+    return {
+      ...userSummary,
+      location: true,
+      risks: {
+        select: {
+          riskType: true,
+          riskLevel: true,
+          updatedAt: true,
+          livenessCheckActivationMode: true,
+        },
+      },
+      guardianRiskNotificationsReceived: {
+        where: { guardianId },
+        orderBy: { sentAt: 'desc' as const },
+        take: 1,
+        select: {
+          riskType: true,
+          trigger: true,
+          sentAt: true,
+        },
+      },
+    };
+  }
+
+  private deriveSafetyStatus(guardee: GuardeeSafetyData) {
+    const latestNotification = guardee.guardianRiskNotificationsReceived[0];
+    const riskForNotification = latestNotification
+      ? guardee.risks.find(
+          (risk) => risk.riskType === latestNotification.riskType,
+        )
+      : undefined;
+
+    if (
+      latestNotification?.trigger ===
+        GuardianRiskNotificationTrigger.FALL_DETECTED ||
+      latestNotification?.trigger ===
+        GuardianRiskNotificationTrigger.NEGATIVE_RESPONSE
+    ) {
+      return {
+        safetyStatus: 'NEEDS_HELP' as const,
+        riskType: latestNotification.riskType,
+        riskLevel: riskForNotification?.riskLevel ?? null,
+        trigger: latestNotification.trigger,
+        updatedAt: latestNotification.sentAt,
+      };
+    }
+
+    if (
+      latestNotification?.trigger ===
+      GuardianRiskNotificationTrigger.LIVENESS_TIMEOUT
+    ) {
+      return {
+        safetyStatus: 'CHECK_IN_OVERDUE' as const,
+        riskType: latestNotification.riskType,
+        riskLevel: riskForNotification?.riskLevel ?? null,
+        trigger: latestNotification.trigger,
+        updatedAt: latestNotification.sentAt,
+      };
+    }
+
+    const highestRisk = [...guardee.risks]
+      .filter(
+        (risk) =>
+          risk.riskLevel === RiskLevel.HIGH ||
+          risk.riskLevel === RiskLevel.CRITICAL,
+      )
+      .sort(
+        (left, right) =>
+          this.riskPriority(right.riskLevel) -
+            this.riskPriority(left.riskLevel) ||
+          right.updatedAt.getTime() - left.updatedAt.getTime(),
+      )[0];
+    if (highestRisk) {
+      return {
+        safetyStatus: 'AT_RISK' as const,
+        riskType: highestRisk.riskType,
+        riskLevel: highestRisk.riskLevel,
+        trigger: null,
+        updatedAt: highestRisk.updatedAt,
+      };
+    }
+
+    const activeLivenessRisk = [...guardee.risks]
+      .filter(
+        (risk) =>
+          risk.livenessCheckActivationMode !== LivenessCheckActivationMode.OFF,
+      )
+      .sort(
+        (left, right) => right.updatedAt.getTime() - left.updatedAt.getTime(),
+      )[0];
+    if (activeLivenessRisk) {
+      return {
+        safetyStatus: 'PROTECTED' as const,
+        riskType: activeLivenessRisk.riskType,
+        riskLevel: activeLivenessRisk.riskLevel,
+        trigger: null,
+        updatedAt: activeLivenessRisk.updatedAt,
+      };
+    }
+
+    return {
+      safetyStatus: 'OK' as const,
+      riskType: null,
+      riskLevel: null,
+      trigger: null,
+      updatedAt: null,
+    };
+  }
+
+  private riskPriority(riskLevel: RiskLevel): number {
+    return riskLevel === RiskLevel.CRITICAL ? 2 : 1;
   }
 
   async removeGuardee(guardianId: string, guardeeId: string): Promise<void> {

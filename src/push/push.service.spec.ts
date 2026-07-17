@@ -182,9 +182,19 @@ describe('PushService', () => {
         GuardianRiskNotificationTrigger.NEGATIVE_RESPONSE,
         'notification-1',
         'guardee-1',
+        'guardee@example.com',
         'Ada',
       ),
     ).resolves.toEqual({ sent: 1, failed: 1 });
-    expect(gateway.sendGuardianRiskNotification).toHaveBeenCalledTimes(2);
+    expect(gateway.sendGuardianRiskNotification).toHaveBeenNthCalledWith(
+      1,
+      'token-1',
+      RiskType.DISASTER,
+      GuardianRiskNotificationTrigger.NEGATIVE_RESPONSE,
+      'notification-1',
+      'guardee-1',
+      'guardee@example.com',
+      'Ada',
+    );
   });
 });

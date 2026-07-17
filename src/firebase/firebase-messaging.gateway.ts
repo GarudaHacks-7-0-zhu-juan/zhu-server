@@ -47,6 +47,7 @@ export class FirebaseMessagingGateway {
     trigger: string,
     notificationId: string,
     guardeeId: string,
+    guardeeIdentity: string,
     guardeeDisplayName?: string,
   ): Promise<void> {
     await this.send({
@@ -58,15 +59,15 @@ export class FirebaseMessagingGateway {
             : 'Guardee safety alert',
         body:
           trigger === 'FALL_DETECTED'
-            ? 'Your guardee may need assistance after a fall.'
-            : 'A guardee may need your attention.',
+            ? `${guardeeIdentity} may need assistance after a fall.`
+            : `${guardeeIdentity} may need your attention.`,
       },
       data: {
         eventType: 'GUARDIAN_RISK_ALERT',
+        route: '/guardees',
         notificationId,
         guardeeId,
         ...(guardeeDisplayName ? { guardeeDisplayName } : {}),
-        route: `/guardees/${guardeeId}`,
         riskType,
         trigger,
       },
