@@ -10,9 +10,10 @@ export class UsersService {
     email: string,
     passwordHash: string,
     phoneNumber: string,
+    displayName?: string,
   ): Promise<User> {
     return this.prisma.user.create({
-      data: { email, passwordHash, phoneNumber },
+      data: { email, passwordHash, phoneNumber, displayName },
     });
   }
 

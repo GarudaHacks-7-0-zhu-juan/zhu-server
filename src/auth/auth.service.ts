@@ -25,7 +25,7 @@ export class AuthService {
     private readonly requestContext: RequestContextService,
   ) {}
 
-  async register({ email, password, phoneNumber }: RegisterDto) {
+  async register({ email, password, phoneNumber, displayName }: RegisterDto) {
     const existingUser = await this.users.findByEmail(email);
     if (existingUser) {
       this.logger.warn({
@@ -38,7 +38,12 @@ export class AuthService {
     const passwordHash = await bcrypt.hash(password, 12);
     let user;
     try {
-      user = await this.users.create(email, passwordHash, phoneNumber);
+      user = await this.users.create(
+        email,
+        passwordHash,
+        phoneNumber,
+        displayName,
+      );
     } catch (error) {
       if (
         error instanceof Prisma.PrismaClientKnownRequestError &&

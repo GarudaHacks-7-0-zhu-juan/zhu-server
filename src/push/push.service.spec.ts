@@ -180,6 +180,9 @@ describe('PushService', () => {
         'guardian-1',
         RiskType.DISASTER,
         GuardianRiskNotificationTrigger.NEGATIVE_RESPONSE,
+        'notification-1',
+        'guardee-1',
+        'Ada',
       ),
     ).resolves.toEqual({ sent: 1, failed: 1 });
     expect(gateway.sendGuardianRiskNotification).toHaveBeenCalledTimes(2);

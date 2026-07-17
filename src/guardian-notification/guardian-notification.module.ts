@@ -2,6 +2,7 @@ import { BullModule } from '@nestjs/bullmq';
 import { Module } from '@nestjs/common';
 import { PushModule } from '../push/push.module';
 import { GUARDIAN_NOTIFICATION_QUEUE } from './guardian-notification.constants';
+import { GuardianNotificationController } from './guardian-notification.controller';
 import { GuardianNotificationProcessor } from './guardian-notification.processor';
 import { GuardianNotificationScheduler } from './guardian-notification.scheduler';
 import { GuardianNotificationService } from './guardian-notification.service';
@@ -11,6 +12,7 @@ import { GuardianNotificationService } from './guardian-notification.service';
     BullModule.registerQueue({ name: GUARDIAN_NOTIFICATION_QUEUE }),
     PushModule,
   ],
+  controllers: [GuardianNotificationController],
   providers: [
     GuardianNotificationService,
     GuardianNotificationProcessor,

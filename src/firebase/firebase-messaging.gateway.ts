@@ -45,6 +45,9 @@ export class FirebaseMessagingGateway {
     registrationToken: string,
     riskType: string,
     trigger: string,
+    notificationId: string,
+    guardeeId: string,
+    guardeeDisplayName?: string,
   ): Promise<void> {
     await this.send({
       token: registrationToken,
@@ -60,7 +63,10 @@ export class FirebaseMessagingGateway {
       },
       data: {
         eventType: 'GUARDIAN_RISK_ALERT',
-        route: '/guardees',
+        notificationId,
+        guardeeId,
+        ...(guardeeDisplayName ? { guardeeDisplayName } : {}),
+        route: `/guardees/${guardeeId}`,
         riskType,
         trigger,
       },
